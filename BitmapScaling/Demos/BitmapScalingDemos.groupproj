@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{13DA48B0-D3A8-41E3-B9F2-D56D13CFF77B}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="DemoScale.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ZoomPan.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="DemoScale">
+        <MSBuild Projects="DemoScale.dproj"/>
+    </Target>
+    <Target Name="DemoScale:Clean">
+        <MSBuild Projects="DemoScale.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DemoScale:Make">
+        <MSBuild Projects="DemoScale.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="ZoomPan">
+        <MSBuild Projects="ZoomPan.dproj"/>
+    </Target>
+    <Target Name="ZoomPan:Clean">
+        <MSBuild Projects="ZoomPan.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ZoomPan:Make">
+        <MSBuild Projects="ZoomPan.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="DemoScale;ZoomPan"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="DemoScale:Clean;ZoomPan:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="DemoScale:Make;ZoomPan:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

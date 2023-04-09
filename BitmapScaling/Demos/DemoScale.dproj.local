@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.491,D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uTools.pas=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\Tools.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.554,=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\Commontools.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.963,D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\Tools.pas=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\Commontools.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.258,=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Algorithms\R-Schaaf\uScale.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.198,D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Algorithms\R-Schaaf\uScale.pas=</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.625,D:\Renates Dateien\Documents\Embarcadero\Studio\Projekte\Unit3.dfm=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uDemoMain.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.305,D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uDemoScaleMain.dfm=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uDemoMain.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.528,=D:\Renates Dateien\Documents\Embarcadero\Studio\Projekte\Unit3.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.625,D:\Renates Dateien\Documents\Embarcadero\Studio\Projekte\Unit3.pas=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uDemoMain.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.080,D:\Renates Dateien\Documents\Embarcadero\Studio\Projekte\Project2.dproj=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\DemoScale.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.399,=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Resampler\uScale.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.305,D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uDemoScaleMain.pas=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demo\uDemoMain.pas</Transaction>
+  </Transactions>
+</BorlandProject>
