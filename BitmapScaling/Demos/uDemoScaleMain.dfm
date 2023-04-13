@@ -18,7 +18,7 @@ object DemoMain: TDemoMain
   PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 473
+    Left = 476
     Top = 0
     Width = 4
     Height = 561
@@ -28,7 +28,7 @@ object DemoMain: TDemoMain
   object Panel1: TPanel
     Left = 0
     Top = 0
-    Width = 473
+    Width = 476
     Height = 561
     Align = alLeft
     Caption = 'Panel1'
@@ -36,7 +36,7 @@ object DemoMain: TDemoMain
     object Panel3: TPanel
       Left = 1
       Top = 1
-      Width = 471
+      Width = 474
       Height = 72
       Align = alTop
       TabOrder = 0
@@ -74,7 +74,7 @@ object DemoMain: TDemoMain
         end
       end
       object AlphaChannel: TRadioGroup
-        Left = 336
+        Left = 339
         Top = 1
         Width = 134
         Height = 70
@@ -91,7 +91,7 @@ object DemoMain: TDemoMain
       object GroupBox4: TGroupBox
         Left = 153
         Top = 1
-        Width = 183
+        Width = 186
         Height = 70
         Align = alClient
         Caption = 'Image from File'
@@ -110,7 +110,7 @@ object DemoMain: TDemoMain
     object Panel5: TPanel
       Left = 1
       Top = 523
-      Width = 471
+      Width = 474
       Height = 37
       Align = alBottom
       BevelEdges = []
@@ -142,7 +142,7 @@ object DemoMain: TDemoMain
     object ScrollBox1: TScrollBox
       Left = 1
       Top = 73
-      Width = 471
+      Width = 474
       Height = 450
       HorzScrollBar.Tracking = True
       VertScrollBar.Tracking = True
@@ -162,17 +162,16 @@ object DemoMain: TDemoMain
     end
   end
   object Panel2: TPanel
-    Left = 477
+    Left = 480
     Top = 0
-    Width = 442
+    Width = 439
     Height = 561
     Align = alClient
-    Caption = 'Panel2'
     TabOrder = 1
     object Panel4: TPanel
       Left = 1
       Top = 1
-      Width = 440
+      Width = 437
       Height = 72
       Align = alTop
       TabOrder = 0
@@ -253,7 +252,7 @@ object DemoMain: TDemoMain
         end
       end
       object CombineModes: TRadioGroup
-        Left = 317
+        Left = 314
         Top = 1
         Width = 122
         Height = 70
@@ -270,7 +269,7 @@ object DemoMain: TDemoMain
       object GroupBox3: TGroupBox
         Left = 201
         Top = 1
-        Width = 116
+        Width = 113
         Height = 70
         Align = alClient
         Caption = 'Filter and Threading'
@@ -311,7 +310,7 @@ object DemoMain: TDemoMain
     object Panel7: TPanel
       Left = 1
       Top = 73
-      Width = 440
+      Width = 437
       Height = 487
       Align = alClient
       Caption = 'Panel7'
@@ -319,7 +318,7 @@ object DemoMain: TDemoMain
       object Splitter2: TSplitter
         Left = 1
         Top = 233
-        Width = 438
+        Width = 435
         Height = 3
         Cursor = crVSplit
         Align = alTop
@@ -329,7 +328,7 @@ object DemoMain: TDemoMain
       object Panel8: TPanel
         Left = 1
         Top = 1
-        Width = 438
+        Width = 435
         Height = 232
         Align = alTop
         Caption = 'Panel8'
@@ -337,8 +336,8 @@ object DemoMain: TDemoMain
         object ScrollBox2: TScrollBox
           Left = 1
           Top = 1
-          Width = 436
-          Height = 193
+          Width = 433
+          Height = 191
           HorzScrollBar.Tracking = True
           VertScrollBar.Tracking = True
           Align = alClient
@@ -358,9 +357,9 @@ object DemoMain: TDemoMain
         end
         object Panel6: TPanel
           Left = 1
-          Top = 194
-          Width = 436
-          Height = 37
+          Top = 192
+          Width = 433
+          Height = 39
           Align = alBottom
           TabOrder = 1
           object Time: TLabel
@@ -377,6 +376,20 @@ object DemoMain: TDemoMain
             Height = 13
             Caption = 'Result using Routines from uScale'
           end
+          object Label8: TLabel
+            Left = 3
+            Top = 19
+            Width = 143
+            Height = 13
+            Caption = 'Filter-Radius [% of Default]: '
+          end
+          object Radius: TLabel
+            Left = 271
+            Top = 21
+            Width = 34
+            Height = 13
+            Caption = 'Radius'
+          end
           object ShowAlphaTarget: TCheckBox
             Left = 304
             Top = 0
@@ -386,12 +399,31 @@ object DemoMain: TDemoMain
             TabOrder = 0
             OnClick = ShowAlphaTargetClick
           end
+          object RadiusPercent: TSpinEdit
+            Left = 152
+            Top = 16
+            Width = 57
+            Height = 22
+            MaxValue = 200
+            MinValue = 10
+            TabOrder = 1
+            Value = 100
+          end
+          object Apply: TButton
+            Left = 215
+            Top = 16
+            Width = 50
+            Height = 21
+            Caption = 'Apply'
+            TabOrder = 2
+            OnClick = ApplyClick
+          end
         end
       end
       object Panel9: TPanel
         Left = 1
         Top = 236
-        Width = 438
+        Width = 435
         Height = 250
         Align = alClient
         Caption = 'Panel9'
@@ -399,8 +431,8 @@ object DemoMain: TDemoMain
         object ScrollBox3: TScrollBox
           Left = 1
           Top = 1
-          Width = 436
-          Height = 213
+          Width = 433
+          Height = 209
           HorzScrollBar.Tracking = True
           VertScrollBar.Tracking = True
           Align = alClient
@@ -420,11 +452,12 @@ object DemoMain: TDemoMain
         end
         object Panel10: TPanel
           Left = 1
-          Top = 214
-          Width = 436
-          Height = 35
+          Top = 210
+          Width = 433
+          Height = 39
           Align = alBottom
           TabOrder = 1
+          ExplicitLeft = 0
           object TimeWIC: TLabel
             Left = 256
             Top = 2
@@ -441,7 +474,7 @@ object DemoMain: TDemoMain
           end
           object Label4: TLabel
             Left = 8
-            Top = 16
+            Top = 18
             Width = 296
             Height = 13
             Caption = 'Independent resampling and threading are not supported.'

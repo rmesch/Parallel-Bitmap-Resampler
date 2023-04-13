@@ -35,6 +35,10 @@ type
     Label3: TLabel;
     Filter: TComboBox;
     Panel6: TPanel;
+    RadiusPercent: TSpinEdit;
+    Label4: TLabel;
+    Radius: TLabel;
+    Label5: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure StartClick(Sender: TObject);
@@ -70,37 +74,37 @@ type
   // when multiplied by the width/height of an image it defines an aspect-preserving sub-rectangle of
   // the image.
   TZoomPan = record
-    xcenter, ycenter, radius: double;
+    xcenter, ycenter, Radius: double;
   end;
 
-function ZoomPanToFloatrect(zp: TZoomPan; w, h: integer): TFloatRect;
+function ZoomPanToFloatrect(zp: TZoomPan; w, h: integer): TFloatRect; inline;
 begin
-  result.Left := (zp.xcenter - zp.radius) * w;
-  result.Top := (zp.ycenter - zp.radius) * h;
-  result.Right := (zp.xcenter + zp.radius) * w;
-  result.Bottom := (zp.ycenter + zp.radius) * h;
+  result.Left := (zp.xcenter - zp.Radius) * w;
+  result.Top := (zp.ycenter - zp.Radius) * h;
+  result.Right := (zp.xcenter + zp.Radius) * w;
+  result.Bottom := (zp.ycenter + zp.Radius) * h;
 end;
 
 // pan from bottom-left to top-right
 // followed by zoom-out to full image
-function Animation(t: double): TZoomPan;
+function Animation(t: double): TZoomPan; inline;
 begin
   if t < 0.5 then
   begin
-    result.radius := 0.35;
+    result.Radius := 0.35;
     result.xcenter := 0.35 + 2 * t * 0.3;
     result.ycenter := 0.65 - 2 * t * 0.3;
   end
   else
   begin
-    result.radius := 0.35 + 2 * (t - 0.5) * 0.15;
-    result.xcenter := 1 - result.radius;
-    result.ycenter := result.radius;
+    result.Radius := 0.35 + 2 * (t - 0.5) * 0.15;
+    result.xcenter := 1 - result.Radius;
+    result.ycenter := result.Radius;
   end;
 end;
 
 const
-  MovieHeights: array [0 .. 5] of integer = (360, 480, 600, 720, 900, 1080);
+  MovieHeights: array [0 .. 6] of integer = (360, 480, 600, 720, 900, 1080, 1440);
   Filters: array [0 .. 3] of TFilter = (cfBox, cfBilinear, cfBicubic,
     cfLanczos);
 
@@ -111,11 +115,11 @@ begin
   TheSource := TBitmap.Create;
   MovieBm := TBitmap.Create;
   Aspect := 1;
-  for i := 0 to 5 do
+  for i := 0 to 6 do
     Heights.AddItem(InttoStr(MovieHeights[i]) + ' p', nil);
   Heights.ItemIndex := 2;
   MovieBox.ControlStyle := MovieBox.ControlStyle + [csOpaque];
-  for i := 0 to ComponentCount-1 do
+  for i := 0 to ComponentCount - 1 do
     if Components[i] is TPanel then
       with TPanel(Components[i]) do
       begin
@@ -152,7 +156,8 @@ end;
 
 procedure TZoomPanMain.MovieBoxPaint(Sender: TObject);
 begin
-  BitBlt(MovieBox.Canvas.Handle,0,0,Moviebox.Width,Moviebox.Height,0,0,0,BLACKNESS);
+  BitBlt(MovieBox.Canvas.Handle, 0, 0, MovieBox.Width, MovieBox.Height, 0, 0, 0,
+    BLACKNESS);
 end;
 
 procedure TZoomPanMain.MoviePanelResize(Sender: TObject);
@@ -206,18 +211,21 @@ procedure TZoomPanMain.ShowAnimation;
 var
   ts, elapsed: int64;
   mt: integer; // movie time in ms
-  mtInv: double; //1/mt
+  mtInv: double; // 1/mt
   ZoomRect: TFloatRect;
   t: double;
   bm: TBitmap;
   Frames: integer;
   f: TFilter;
+  r: single;
 begin
-  Resample(MovieWidth, MovieHeight, TheSource, MovieBm, cfLanczos,
-    0, false, amIgnore);
+  MovieBox.OnPaint:=nil;
+  Resample(MovieWidth, MovieHeight, TheSource, MovieBm, cfLanczos, 0, false,
+    amIgnore);
   mt := Time.Value * 1000;
-  mtInv := 1/mt;
+  mtInv := 1 / mt;
   f := Filters[Filter.ItemIndex];
+  r := DefaultRadius[f] * 0.01 * RadiusPercent.Value;
   bm := TBitmap.Create;
   try
     bm.PixelFormat := pf32bit;
@@ -230,19 +238,21 @@ begin
       t := elapsed * mtInv;
       ZoomRect := ZoomPanToFloatrect(Animation(t), MovieWidth, MovieHeight);
       ZoomResampleParallelThreads(MovieWidth, MovieHeight, MovieBm, bm,
-        ZoomRect, f, 0, amIgnore);
+        ZoomRect, f, r, amIgnore);
       BitBlt(MovieBox.Canvas.Handle, 0, 0, MovieWidth, MovieHeight,
         bm.Canvas.Handle, 0, 0, SRCCopy);
       Inc(Frames);
-      //This is a tight loop and has been coded like this
-      //for demonstration purposes only
-      //sleep(1);
+      // This is a tight loop and has been coded like this
+      // for demonstration purposes only
+      // sleep(1);
       elapsed := TimeGetTime - ts;
     end;
   finally
     bm.Free;
   end;
   FPS.Caption := InttoStr(round(Frames / Time.Value)) + ' fps';
+  Radius.Caption := 'Filter-Radius: ' + FloatToStrF(r, ffFixed, 4, 2);
+  MovieBox.OnPaint:=MovieBoxPaint;
 end;
 
 procedure TZoomPanMain.StartClick(Sender: TObject);

@@ -3,8 +3,7 @@ unit uTools;
 interface
 
 uses WinApi.Windows, WinApi.Wincodec, VCL.Graphics, System.SysUtils,
-  VCL.ExtCtrls,
-  System.Types, VCL.Imaging.pngimage, uScale;
+  VCL.ExtCtrls, System.Types, VCL.Imaging.pngimage, uScale;
 
 // classes for generation of test bitmaps
 type
@@ -68,15 +67,15 @@ procedure CopyAlphaChannel(const bm, bAlpha: TBitmap);
 
 procedure PngToBmp(const png: TPngImage; const bmp: TBitmap);
 
-//Caution: this routine can alter Source by pre-multiplication with alpha.
-//This happens for AlphaCombineMode = amPreMultiply
-//amIndependent is not supported
+// Caution: this routine can alter Source by pre-multiplication with alpha.
+// This happens for AlphaCombineMode = amPreMultiply
+// amIndependent is not supported
 procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
   const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
 
 implementation
 
-uses math, Classes;
+uses System.Math, System.Classes;
 
 var
   SourceWIC: TWICImage;
@@ -326,7 +325,7 @@ begin
     dec(row, bps);
     dec(RowAlpha, bpsAlpha);
   end;
-  //??????
+  // ??????
   DeleteObject(bAlpha.Palette);
 end;
 

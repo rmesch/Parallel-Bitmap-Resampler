@@ -12,20 +12,18 @@
   under the License.
   ***************************************************************************** }
 unit uScale;
-(*****************************************************************)
-(* High quality resampling of VCL-bitmaps using various filters  *)
-(* and including fast threaded routines.                         *)
-(* Copyright 2003-2023 Renate Schaaf                             *)
-(* Inspired by A.Melander, M.Lischke, E.Grange.                  *)
-(* Supported Delphi-versions: 10.x and up, probably works with   *)
-(* some earlier versions, but untested.                          *)
-(* Caution! The threaded routine itself is not threadsafe,       *)
-(* it uses global variables for the threads.                     *)
-(* The "beef" of the algorithm used is in the routines           *)
-(*   MakeContributors and ProcessRow*                            *)
-(*****************************************************************)
-
-
+(* ***************************************************************
+ High quality resampling of VCL-bitmaps using various filters
+ and including fast threaded routines.
+ Copyright 2003-2023 Renate Schaaf
+ Inspired by A.Melander, M.Lischke, E.Grange.
+ Supported Delphi-versions: 10.x and up, probably works with
+ some earlier versions, but untested.
+ Caution! The threaded routine itself is not threadsafe,
+ it uses global variables for the threads.
+ The "beef" of the algorithm used is in the routines
+ MakeContributors and ProcessRow*
+ *************************************************************** *)
 
 interface
 
@@ -44,8 +42,7 @@ uses WinApi.Windows, VCL.Graphics, System.Types, System.UITypes,
 
 type
   // filter types
-  TFilter = (cfBox, cfBilinear, cfBicubic, cfMine, cfLanczos,
-    cfBSpline);
+  TFilter = (cfBox, cfBilinear, cfBicubic, cfMine, cfLanczos, cfBSpline);
 
   TFilterFunction = function(x: double): double;
 
@@ -108,23 +105,22 @@ const
   // can be made a tad smaller for performance
   DefaultRadius: array [TFilter] of single = (0.5, 1, 2, 2, 3, 2);
 
-  //constants used to divide the work for threading
-  _ChunkWidth: integer = 720;
+  // constants used to divide the work for threading
   _ChunkHeight: integer = 8;
   MaxThreadCount: integer = 64;
 
 var
   ResamplingThreads: array of TResamplingThread;
 
-/// <summary> Resampling of complete bitmaps with various options. Uses the ZoomResample.. functions internally </summary>
-/// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
-/// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
-/// <param name="Source"> Source bitmap, will be set to pf32bit </param>
-/// <param name="Target"> Target bitmap, will be set to pf32bit </param>
-/// <param name="Filter"> Defines the kernel function for resampling </param>
-/// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
-/// <param name="Parallel"> If true the resampling work is divided into parallel threads. </param>
-/// <param name="AlphaCombineMode"> Options for combining the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
+  /// <summary> Resampling of complete bitmaps with various options. Uses the ZoomResample.. functions internally </summary>
+  /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
+  /// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
+  /// <param name="Source"> Source bitmap, will be set to pf32bit </param>
+  /// <param name="Target"> Target bitmap, will be set to pf32bit </param>
+  /// <param name="Filter"> Defines the kernel function for resampling </param>
+  /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
+  /// <param name="Parallel"> If true the resampling work is divided into parallel threads. </param>
+  /// <param name="AlphaCombineMode"> Options for combining the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
 procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
   Filter: TFilter; Radius: single; Parallel: boolean;
   AlphaCombineMode: TAlphaCombineMode);
@@ -142,8 +138,8 @@ procedure ZoomResample(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
-//!Caution: The following routine uses threads, but is itself not threadsafe, because the threads are
-//!global variables. If you must use it in more than one thread, protect it by a critical section.
+// !Caution: The following routine uses threads, but is itself not threadsafe, because the threads are
+// !global variables. If you must use it in more than one thread, protect it by a critical section.
 
 /// <summary> Resamples a rectangle of the Source to the Target using parallel threads. </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
@@ -158,11 +154,12 @@ procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
-//The following procedure allows you to compare performance of normal threads to
-//the built-in TTask-threading.
-//Timings with TTask tend to be erratic. Sometimes it takes a very long time,
-//I think this happens whenever the system deems it necessary to re-initialize
-//the threading-framework.
+// The following procedure allows you to compare performance of normal threads to
+// the built-in TTask-threading.
+// Timings with TTask tend to be erratic. Sometimes it takes a very long time,
+// I think this happens whenever the system deems it necessary to re-initialize
+// the threading-framework.
+
 /// <summary> Resamples a rectangle of the Source to the Target using parallel tasks (TTask). </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
 /// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
@@ -204,7 +201,10 @@ begin
   end;
 end;
 
-//follow the filter functions
+// Follow the filter functions.
+// They actually never get inlined, because
+// MakeContributors uses a procedural variable,
+// but their use is not in a time-critical spot.
 function Box(x: double): double; inline;
 begin
   x := abs(x);
@@ -267,23 +267,26 @@ begin
     Result := 0;
 end;
 
-function Lanczos(x: double): double;
+function Lanczos(x: double): double; inline;
 var
-  y: double;
+  y, yinv: double;
 begin
   x := abs(x);
-  y := Pi * x;
-  if y = 0 then
+  if x = 0 then
     Result := 3
   else if x < 1 then
-    Result := sin(3 * y) * sin(y) / y / y
+  begin
+    y := Pi * x;
+    yinv := 1 / y;
+    Result := sin(3 * y) * sin(y) * yinv * yinv;
+  end
   else
     Result := 0;
 end;
 
 const
-  FilterFunctions: array [TFilter] of TFilterFunction = (Box, Linear,
-    Bicubic, Mine, Lanczos, BSpline);
+  FilterFunctions: array [TFilter] of TFilterFunction = (Box, Linear, Bicubic,
+    Mine, Lanczos, BSpline);
 
 type
   TPrecision = (prLow, prHigh);
@@ -292,8 +295,8 @@ const
   PrecisionFacts: array [TPrecision] of integer = ($100, $800);
   PreMultPrecision = 1 shl 2;
 
-  PointCount = 20;
-  PointCountMin2 = PointCount - 2;
+  PointCount = 14;
+  PointCountMinus2 = PointCount - 2;
   PointCountInv = 1 / PointCount;
 
 procedure MakeContributors(r: single; SourceSize, TargetSize: integer;
@@ -347,7 +350,6 @@ begin
     Assert(Contribs[x].High >= 0);
     // High=Number of contributing pixels minus 1
     SetLength(Contribs[x].Weights, Contribs[x].High + 1);
-    // SetLength(WeightsF,Contribs[x].High+1);
     sum := 0;
     with Contribs[x] do
     begin
@@ -366,8 +368,8 @@ begin
         // the midpoint parts seems to preserve details
         // while the trapezoidal part and the intersection
         // with the support of the filter prevents artefacts
-        dw := PointCountInv * (x2 - x1) *
-          (FT(x1) + FT(x2) + PointCountMin2 * FT(x3));
+        dw := PointCountInv*(x2 - x1) *
+          (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
         // scale float to integer, integer=prec corresponds to float=1
         Weights[j] := round(prec * dw);
         x0 := x0 + delta;
@@ -383,8 +385,8 @@ begin
         x2 := System.Math.Min(x2, 1);
         x3 := 0.5 * (x1 + x2);
         dw := PointCountInv * (x2 - x1) *
-          (FT(x1) + FT(x2) + PointCountMin2 * FT(x3));
-        ds := round(dw);
+          (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
+        ds := round(prec*dw);
         Weights[0] := Weights[0] + ds;
         sum := sum + ds;
       end;
@@ -398,8 +400,8 @@ begin
         x2 := System.Math.Min(x2, 1);
         x3 := 0.5 * (x1 + x2);
         dw := PointCountInv * (x2 - x1) *
-          (FT(x1) + FT(x2) + PointCountMin2 * FT(x3));
-        ds := round(dw);
+          (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
+        ds := round(prec*dw);
         Weights[High] := Weights[High] + ds;
         sum := sum + ds;
       end;
@@ -409,6 +411,7 @@ begin
     { with Contribs[x] }
   end; { for x }
 end;
+
 
 // By using 3 different versions of ProcessRow, these are inlined
 Procedure CombineIndependent(const ps: PRGBQuad; const Weight: integer;
@@ -543,19 +546,19 @@ type
     xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
     const ContribsX, ContribsY: TContribArray);
 
-{
-  const
+  {
+    const
     CombineInits: array [TAlphaCombineMode] of TCombineProcedure =
-      (CombineIndependent, CombinePremult, CombineIgnore);
+    (CombineIndependent, CombinePremult, CombineIgnore);
     CombineIncreases: array [TAlphaCombineMode] of TCombineProcedure =
-      (IncreaseIndependent, IncreasePremult, IncreaseIgnore);
+    (IncreaseIndependent, IncreasePremult, IncreaseIgnore);
     TotalInits: array [TAlphaCombineMode] of TTotalProcedure = (InitTotal,
-      InitTotal, InitTotalIgnore);
+    InitTotal, InitTotalIgnore);
     TotalIncreases: array [TAlphaCombineMode] of TTotalProcedure = (IncreaseTotal,
-      IncreaseTotal, IncreaseTotalIgnore);
+    IncreaseTotal, IncreaseTotalIgnore);
     ClampProcedures: array [TAlphaCombineMode] of TClampProcedure =
-      (ClampIndependent, ClampPreMult, ClampIgnore);
-}
+    (ClampIndependent, ClampPreMult, ClampIgnore);
+  }
 
 procedure ProcessRowIndependent(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
   xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
@@ -824,9 +827,76 @@ const
   RowProcedures: array [TAlphaCombineMode] of TRowProcedure =
     (ProcessRowIndependent, ProcessRowPreMult, ProcessRowIgnore);
 
-function GetResampleTask(Sbps, Tbps, ymin, ymax, xmin, xmax, xminSource,
-  xmaxSource: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
-  const ContribsX, ContribsY: TContribArray;
+type
+
+  TCacheMatrix = array of TBGRAIntArray;
+
+  TResamplingThreadSetup = record
+    Tbps, Sbps: integer;
+    ContribsX, ContribsY: TContribArray;
+    rStart, rTStart: PByte;
+    ThreadCount: integer;
+    xmin, xmax, xminSource, xmaxSource: integer;
+    ymin, ymax: TIntArray;
+    CacheMatrix: TCacheMatrix;
+    procedure PrepareResamplingThreads(NewWidth, NewHeight: integer;
+      const Source, Target: TBitmap; Radius: single; Filter: TFilter;
+      SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode);
+  end;
+
+procedure TResamplingThreadSetup.PrepareResamplingThreads(NewWidth,
+  NewHeight: integer; const Source, Target: TBitmap; Radius: single;
+  Filter: TFilter; SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode);
+var
+  OldWidth, OldHeight: integer;
+  yChunkCount: integer;
+  yChunk: integer;
+  j, Index: integer;
+begin
+  OldWidth := Source.Width;
+  OldHeight := Source.Height;
+
+  Tbps := ((NewWidth * 32 + 31) and not 31) div 8;
+  Sbps := ((OldWidth * 32 + 31) and not 31) div 8;
+
+  MakeContributors(Radius, OldWidth, NewWidth, SourceRect.Left,
+    SourceRect.Right - SourceRect.Left, Filter, Precisions[AlphaCombineMode],
+    ContribsX);
+  MakeContributors(Radius, OldHeight, NewHeight, SourceRect.Top,
+    SourceRect.Bottom - SourceRect.Top, Filter, Precisions[AlphaCombineMode],
+    ContribsY);
+
+  rStart := Source.Scanline[0];
+  rTStart := Target.Scanline[0];
+
+  yChunkCount := max(Min(NewHeight div _ChunkHeight + 1,
+    Length(ResamplingThreads)), 2);
+  ThreadCount := yChunkCount;
+
+  SetLength(ymin, ThreadCount);
+  SetLength(ymax, ThreadCount);
+
+  yChunk := NewHeight div yChunkCount;
+
+  xmin := 0;
+  xmax := NewWidth - 1;
+  xminSource := ContribsX[0].Min;
+  xmaxSource := ContribsX[xmax].Min + ContribsX[xmax].High;
+  for j := 0 to yChunkCount - 1 do
+  begin
+    ymin[j] := j * yChunk;
+    if j < yChunkCount - 1 then
+      ymax[j] := (j + 1) * yChunk - 1
+    else
+      ymax[j] := NewHeight - 1;
+  end;
+
+  SetLength(CacheMatrix, ThreadCount);
+  for Index := 0 to ThreadCount - 1 do
+    SetLength(CacheMatrix[Index], xmaxSource - xminSource + 1);
+end;
+
+function GetResamplingTask(RTS: TResamplingThreadSetup; Index: integer;
   AlphaCombineMode: TAlphaCombineMode): TProc;
 begin
   Result := procedure
@@ -835,10 +905,10 @@ begin
       RP: TRowProcedure;
     begin
       RP := RowProcedures[AlphaCombineMode];
-      for y := ymin to ymax do
+      for y := RTS.ymin[Index] to RTS.ymax[Index] do
       begin
-        RP(y, Sbps, Tbps, xminSource, xmaxSource, xmin, xmax, rStart, rTStart,
-          runstart, ContribsX, ContribsY);
+        RP(y, RTS.Sbps, RTS.Tbps, RTS.xminSource, RTS.xmaxSource, RTS.xmin, RTS.xmax, RTS.rStart, RTS.rTStart,
+          @RTS.CacheMatrix[Index][0], RTS.ContribsX, RTS.ContribsY);
 
       end; // for y
     end; // procedure
@@ -848,187 +918,45 @@ procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 var
-  ContribsX, ContribsY: TContribArray;
-
-  OldWidth, OldHeight: integer;
-
-  Sbps, Tbps: integer;
-  rStart, rTStart: PByte;
-  // Row start in Source, Target
-  Index, i, j: integer;
-  ThreadCount, xChunkCount, yChunkCount, xChunk, yChunk, xminl, xmaxl,
-    xminSourcel, xmaxSourcel: integer;
-  CacheMatrix: array of TBGRAIntArray;
-  xmin, xmax, xminSource, xmaxSource, ymin, ymax: array of integer;
+  RTS: TResamplingThreadSetup;
+  Index: integer;
 begin
-  if Radius=0 then
-  Radius:=DefaultRadius[Filter];
+  if Radius = 0 then
+    Radius := DefaultRadius[Filter];
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
   Target.SetSize(NewWidth, NewHeight);
 
-  OldWidth := Source.Width;
-  OldHeight := Source.Height;
+  RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
+    Filter, SourceRect, AlphaCombineMode);
 
-  Tbps := ((NewWidth * 32 + 31) and not 31) div 8;
-  Sbps := ((OldWidth * 32 + 31) and not 31) div 8;
-
-  MakeContributors(Radius, OldWidth, NewWidth, SourceRect.Left,
-    SourceRect.Right - SourceRect.Left, Filter,
-    Precisions[AlphaCombineMode], ContribsX);
-  MakeContributors(Radius, OldHeight, NewHeight, SourceRect.Top,
-    SourceRect.Bottom - SourceRect.Top, Filter,
-    Precisions[AlphaCombineMode], ContribsY);
-
-  rStart := Source.ScanLine[0];
-  rTStart := Target.ScanLine[0];
-
-  xChunkCount := max(Min(NewWidth div _ChunkWidth, Length(ResamplingThreads)
-    div 4), 1);
-  yChunkCount := max(Min(NewHeight div _ChunkHeight, Length(ResamplingThreads)
-    div xChunkCount), 2);
-  ThreadCount := xChunkCount * yChunkCount;
-
-  SetLength(xmin, ThreadCount);
-  SetLength(xmax, ThreadCount);
-  SetLength(xminSource, ThreadCount);
-  SetLength(xmaxSource, ThreadCount);
-  SetLength(ymin, ThreadCount);
-  SetLength(ymax, ThreadCount);
-
-  xChunk := NewWidth div xChunkCount;
-  yChunk := NewHeight div yChunkCount;
-
-  for i := 0 to xChunkCount - 1 do
-  begin
-    xminl := i * xChunk;
-    if i < xChunkCount - 1 then
-      xmaxl := (i + 1) * xChunk - 1
-    else
-      xmaxl := NewWidth - 1;
-    xminSourcel := ContribsX[xminl].Min;
-    xmaxSourcel := ContribsX[xmaxl].Min + ContribsX[xmaxl].High;
-    for j := 0 to yChunkCount - 1 do
-    begin
-      xmin[i * yChunkCount + j] := xminl;
-      xmax[i * yChunkCount + j] := xmaxl;
-      xminSource[i * yChunkCount + j] := xminSourcel;
-      xmaxSource[i * yChunkCount + j] := xmaxSourcel;
-      ymin[i * yChunkCount + j] := j * yChunk;
-      if j < yChunkCount - 1 then
-        ymax[i * yChunkCount + j] := (j + 1) * yChunk - 1
-      else
-        ymax[i * yChunkCount + j] := NewHeight - 1;
-    end;
-  end;
-
-  SetLength(CacheMatrix, ThreadCount);
-  for Index := 0 to ThreadCount - 1 do
-    SetLength(CacheMatrix[Index], xmaxSource[Index] - xminSource[Index] + 1);
-
-  for Index := 0 to ThreadCount - 1 do
-  begin
-    ResamplingThreads[Index].RunAnonProc(GetResampleTask(Sbps, Tbps,
-      ymin[Index], ymax[Index], xmin[Index], xmax[Index], xminSource[Index],
-      xmaxSource[Index], rStart, rTStart, @CacheMatrix[Index][0], ContribsX,
-      ContribsY, AlphaCombineMode));
-  end;
-  for Index := 0 to ThreadCount - 1 do
-  begin
+  for Index := 0 to RTS.ThreadCount - 1 do
+    ResamplingThreads[Index].RunAnonProc(GetResamplingTask(RTS,Index,AlphaCombineMode));
+  for Index := 0 to RTS.ThreadCount - 1 do
     ResamplingThreads[Index].Done.Waitfor(INFINITE);
-  end;
 end;
 
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 var
-  ContribsX, ContribsY: TContribArray;
-
-  OldWidth, OldHeight: integer;
-
-  Sbps, Tbps: integer;
-  rStart, rTStart: PByte;
-  // Row start in Source, Target
-  Index, i, j: integer;
-  ThreadCount, xChunkCount, yChunkCount, xChunk, yChunk, xminl, xmaxl,
-    xminSourcel, xmaxSourcel: integer;
-  CacheMatrix: array of TBGRAIntArray;
-  xmin, xmax, xminSource, xmaxSource, ymin, ymax: array of integer;
+  RTS: TResamplingThreadSetup;
+  Index: integer;
   tasks: array of iTask;
 begin
-  if Radius=0 then
-  Radius:=DefaultRadius[Filter];
+  if Radius = 0 then
+    Radius := DefaultRadius[Filter];
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
   Target.SetSize(NewWidth, NewHeight);
 
-  OldWidth := Source.Width;
-  OldHeight := Source.Height;
+  RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
+    Filter, SourceRect, AlphaCombineMode);
 
-  Tbps := ((NewWidth * 32 + 31) and not 31) div 8;
-  Sbps := ((OldWidth * 32 + 31) and not 31) div 8;
+  SetLength(tasks, RTS.ThreadCount);
 
-  MakeContributors(Radius, OldWidth, NewWidth, SourceRect.Left,
-    SourceRect.Right - SourceRect.Left, Filter,
-    Precisions[AlphaCombineMode], ContribsX);
-  MakeContributors(Radius, OldHeight, NewHeight, SourceRect.Top,
-    SourceRect.Bottom - SourceRect.Top, Filter,
-    Precisions[AlphaCombineMode], ContribsY);
-
-  rStart := Source.ScanLine[0];
-  rTStart := Target.ScanLine[0];
-
-  xChunkCount := max(Min(NewWidth div _ChunkWidth, Length(ResamplingThreads)
-    div 4), 1);
-  yChunkCount := max(Min(NewHeight div _ChunkHeight, Length(ResamplingThreads)
-    div xChunkCount), 2);
-  ThreadCount := xChunkCount * yChunkCount;
-
-  SetLength(xmin, ThreadCount);
-  SetLength(xmax, ThreadCount);
-  SetLength(xminSource, ThreadCount);
-  SetLength(xmaxSource, ThreadCount);
-  SetLength(ymin, ThreadCount);
-  SetLength(ymax, ThreadCount);
-
-  xChunk := NewWidth div xChunkCount;
-  yChunk := NewHeight div yChunkCount;
-
-  for i := 0 to xChunkCount - 1 do
-  begin
-    xminl := i * xChunk;
-    if i < xChunkCount - 1 then
-      xmaxl := (i + 1) * xChunk - 1
-    else
-      xmaxl := NewWidth - 1;
-    xminSourcel := ContribsX[xminl].Min;
-    xmaxSourcel := ContribsX[xmaxl].Min + ContribsX[xmaxl].High;
-    for j := 0 to yChunkCount - 1 do
-    begin
-      xmin[i * yChunkCount + j] := xminl;
-      xmax[i * yChunkCount + j] := xmaxl;
-      xminSource[i * yChunkCount + j] := xminSourcel;
-      xmaxSource[i * yChunkCount + j] := xmaxSourcel;
-      ymin[i * yChunkCount + j] := j * yChunk;
-      if j < yChunkCount - 1 then
-        ymax[i * yChunkCount + j] := (j + 1) * yChunk - 1
-      else
-        ymax[i * yChunkCount + j] := NewHeight - 1;
-    end;
-  end;
-
-  SetLength(CacheMatrix, ThreadCount);
-  for Index := 0 to ThreadCount - 1 do
-    SetLength(CacheMatrix[Index], xmaxSource[Index] - xminSource[Index] + 1);
-  SetLength(tasks, ThreadCount);
-  for Index := 0 to ThreadCount - 1 do
-  begin
-    tasks[Index] := TTask.Run(GetResampleTask(Sbps, Tbps,
-      ymin[Index], ymax[Index], xmin[Index], xmax[Index], xminSource[Index],
-      xmaxSource[Index], rStart, rTStart, @CacheMatrix[Index][0], ContribsX,
-      ContribsY, AlphaCombineMode));
-  end;
+  for Index := 0 to RTS.ThreadCount - 1 do
+    tasks[Index]:=TTask.Run(GetResamplingTask(RTS,Index,AlphaCombineMode));
   TTask.WaitForAll(tasks,INFINITE);
 end;
 
@@ -1048,8 +976,8 @@ var
   runstart: PBGRAInt;
   RP: TRowProcedure;
 begin
-  if Radius=0 then
-  Radius:=DefaultRadius[Filter];
+  if Radius = 0 then
+    Radius := DefaultRadius[Filter];
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
   Target.SetSize(NewWidth, NewHeight);
@@ -1061,14 +989,14 @@ begin
   Sbps := ((OldWidth * 32 + 31) and not 31) div 8;
 
   MakeContributors(Radius, OldWidth, NewWidth, SourceRect.Left,
-    SourceRect.Right - SourceRect.Left, Filter,
-    Precisions[AlphaCombineMode], ContribsX);
+    SourceRect.Right - SourceRect.Left, Filter, Precisions[AlphaCombineMode],
+    ContribsX);
   MakeContributors(Radius, OldHeight, NewHeight, SourceRect.Top,
-    SourceRect.Bottom - SourceRect.Top, Filter,
-    Precisions[AlphaCombineMode], ContribsY);
+    SourceRect.Bottom - SourceRect.Top, Filter, Precisions[AlphaCombineMode],
+    ContribsY);
 
-  rStart := Source.ScanLine[0];
-  rTStart := Target.ScanLine[0];
+  rStart := Source.Scanline[0];
+  rTStart := Target.Scanline[0];
 
   SourceMin := ContribsX[0].Min;
   SourceMax := ContribsX[NewWidth - 1].Min + ContribsX[NewWidth - 1].High;
@@ -1080,21 +1008,18 @@ begin
 
   // Compute colors for each target row at y
   for y := 0 to NewHeight - 1 do
-  begin
     RP(y, Sbps, Tbps, SourceMin, SourceMax, 0, NewWidth - 1, rStart, rTStart,
       runstart, ContribsX, ContribsY);
-  end;
-  // for y
 end;
 
 procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
-Filter: TFilter; Radius: single; parallel: boolean;
-AlphaCombineMode: TAlphaCombineMode);
+  Filter: TFilter; Radius: single; Parallel: boolean;
+  AlphaCombineMode: TAlphaCombineMode);
 var
   r: TFloatRect;
 begin
   r := FloatRect(Rect(0, 0, Source.Width, Source.Height));
-  if parallel then
+  if Parallel then
 
     ZoomResampleParallelThreads(NewWidth, NewHeight, Source, Target, r, Filter,
       Radius, AlphaCombineMode)
@@ -1152,15 +1077,18 @@ end;
 
 procedure InitResamplingThreads;
 begin
-  //creating more threads than processors present does not seem to
-  //speed up anything.
-  SetLength(ResamplingThreads, Min(MaxThreadCount, TThread.ProcessorCount));
+  // creating more threads than processors present does not seem to
+  // speed up anything.
+  // We need at least 2 threads, though, for the logic of the routine
+  // dividing up the work
+  SetLength(ResamplingThreads,
+    max(Min(MaxThreadCount, TThread.ProcessorCount), 2));
 
   for var i: integer := 0 to Length(ResamplingThreads) - 1 do
   begin
     ResamplingThreads[i] := TResamplingThread.Create;
     ResamplingThreads[i].priority := tpHigher;
-    ResamplingThreads[i].Ready.WaitFor(Infinite);
+    ResamplingThreads[i].Ready.Waitfor(INFINITE);
   end;
 end;
 
@@ -1173,21 +1101,19 @@ begin
     ResamplingThreads[i].Free;
     ResamplingThreads[i] := nil;
   end;
-  SetLength(ResamplingThreads,0);
+  SetLength(ResamplingThreads, 0);
 end;
 
 initialization
 
-//The threads stay around all the time waiting to be woken up.
-//This looks terrible, but hardly consumes any additional CPU-time
-//at all. Watch task manager.
+// The threads stay around all the time waiting to be woken up.
+// This looks terrible, but hardly consumes any additional CPU-time
+// at all. Watch task manager.
 InitResamplingThreads;
-
 
 finalization
 
 FreeResamplingThreads;
-
 
 {$IFDEF O_MINUS}
 {$O-}

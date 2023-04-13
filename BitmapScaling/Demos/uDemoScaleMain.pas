@@ -58,6 +58,10 @@ type
     Label6: TLabel;
     Label7: TLabel;
     Label4: TLabel;
+    Label8: TLabel;
+    RadiusPercent: TSpinEdit;
+    Radius: TLabel;
+    Apply: TButton;
     procedure FormCreate(Sender: TObject);
     procedure MakeTestBitmapClick(Sender: TObject);
     procedure ShowAlphaClick(Sender: TObject);
@@ -84,6 +88,7 @@ type
     procedure Image3MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; x, Y: Integer);
     procedure FormShow(Sender: TObject);
+    procedure ApplyClick(Sender: TObject);
   private
     TheSource, TheOriginal, TheTarget, TheWIC: TBitmap;
     Aspect: double;
@@ -97,6 +102,8 @@ type
     procedure DisplayTarget;
     procedure DisplayWIC;
     procedure DisplayAlphaWIC;
+    procedure Display(const bm: TBitmap; im: TImage; ShowAlpha: boolean);
+    procedure DisplayAlpha(const bm: TBitmap; Im: TImage);
     { Private-Deklarationen }
   public
     { Public-Deklarationen }
@@ -264,8 +271,8 @@ begin
   w := TheSource.Width;
   h := TheSource.Height;
   OriginalSize.Caption := 'Original: ' + Inttostr(w) + ' x ' + Inttostr(h);
-  Width.MaxValue := 3 * w;
-  Height.MaxValue := 3 * h;
+  Width.MaxValue := 20 * w;
+  Height.MaxValue := 20 * h;
   Aspect := w / h;
   Width.Value := round(93 / 100 * w);
   Height.Value := round(93 / 100 * h);
@@ -285,85 +292,65 @@ begin
   DoScale;
 end;
 
-procedure TDemoMain.DisplayAlphaSource;
-var
-  bm: TBitmap;
+procedure TDemoMain.DisplayAlpha(const bm: TBitmap; Im: TImage);
+var bmAlpha: TBitmap;
 begin
-  bm := TBitmap.Create;
+   bmAlpha := TBitmap.Create;
   try
-    CopyAlphaChannel(TheSource, bm);
-    Image1.Picture := nil;
-    Image1.Invalidate;
-    Image1.Picture.Bitmap := bm;
+    CopyAlphaChannel(bm, bmAlpha);
+    Im.Picture := nil;
+    Im.Invalidate;
+    Im.Picture.Bitmap := bmAlpha;
   finally
-    bm.Free;
+    bmAlpha.Free;
   end;
+end;
+
+procedure TDemoMain.DisplayAlphaSource;
+begin
+  DisplayAlpha(TheSource, Image1);
 end;
 
 procedure TDemoMain.DisplayAlphaTarget;
-var
-  bm: TBitmap;
 begin
-  bm := TBitmap.Create;
-  try
-    CopyAlphaChannel(TheTarget, bm);
-    Image2.Picture := nil;
-    Image2.Invalidate;
-    Image2.Picture.Bitmap := bm;
-  finally
-    bm.Free;
-  end;
+  DisplayAlpha(TheTarget, Image2);
 end;
 
 procedure TDemoMain.DisplayAlphaWIC;
-var
-  bm: TBitmap;
 begin
-  bm := TBitmap.Create;
-  try
-    CopyAlphaChannel(TheWIC, bm);
-    Image3.Picture := nil;
-    Image3.Invalidate;
-    Image3.Picture.Bitmap := bm;
-  finally
-    bm.Free;
-  end;
+  DisplayAlpha(TheWIC, Image3);
+end;
+
+procedure TDemoMain.ApplyClick(Sender: TObject);
+begin
+  DoScale;
+end;
+
+procedure TDemoMain.Display(const bm: TBitmap; Im: TImage; ShowAlpha: boolean);
+begin
+  Im.Picture := nil;
+  Im.Invalidate;
+  Im.Picture.Bitmap := bm;
+  if ShowAlpha then
+    Im.Picture.Bitmap.AlphaFormat := afDefined
+  else
+    Im.Picture.Bitmap.AlphaFormat := afIgnored;
+  Im.Invalidate;
 end;
 
 procedure TDemoMain.DisplaySource;
 begin
-  Image1.Picture := nil;
-  Image1.Invalidate;
-  Image1.Picture.Bitmap := TheSource;
-  if ShowAlpha.Checked then
-    Image1.Picture.Bitmap.AlphaFormat := afDefined
-  else
-    Image1.Picture.Bitmap.AlphaFormat := afIgnored;
-  Image1.Invalidate;
+  Display(TheSource, Image1, ShowAlpha.Checked);
 end;
 
 procedure TDemoMain.DisplayTarget;
 begin
-  Image2.Picture := nil;
-  Image2.Invalidate;
-  Image2.Picture.Bitmap := TheTarget;
-  if ShowAlphaTarget.Checked then
-    Image2.Picture.Bitmap.AlphaFormat := afDefined
-  else
-    Image2.Picture.Bitmap.AlphaFormat := afIgnored;
-  Image2.Invalidate;
+  Display(TheTarget, Image2, ShowAlphaTarget.Checked);
 end;
 
 procedure TDemoMain.DisplayWIC;
 begin
-  Image3.Picture := nil;
-  Image3.Invalidate;
-  Image3.Picture.Bitmap := TheWIC;
-  if ShowAlphaWIC.Checked then
-    Image3.Picture.Bitmap.AlphaFormat := afDefined
-  else
-    Image3.Picture.Bitmap.AlphaFormat := afIgnored;
-  Image3.Invalidate;
+  Display(TheWIC, Image3, ShowAlphaWIC.Checked);
 end;
 
 const
@@ -378,9 +365,11 @@ var
   Timing: Int64;
   bm, help: TBitmap;
   nw, nh, deltaw, i: Integer;
+  r: single;
 begin
   Screen.Cursor:=crHourGlass;
   Filter := FilterArray[Filters.ItemIndex];
+  r := 0.01*RadiusPercent.Value*DefaultRadius[Filter];  //Filter-Radius
   TheWIC.SetSize(0, 0);
   TheTarget.SetSize(0, 0); // erase previous alpha
   deltaw := (TheSource.Width - Width.Value) div Steps.Value;
@@ -408,14 +397,14 @@ begin
         case Threading.ItemIndex of
           0:
             ZoomResample(nw, nh, bm, help, FloatRect(0, 0, bm.Width, bm.Height),
-              Filter, 0, TAlphaCombineMode(CombineModes.ItemIndex));
+              Filter, r, TAlphaCombineMode(CombineModes.ItemIndex));
           1:
             ZoomResampleParallelThreads(nw, nh, bm, help,
-              FloatRect(0, 0, bm.Width, bm.Height), Filter, 0,
+              FloatRect(0, 0, bm.Width, bm.Height), Filter, r,
               TAlphaCombineMode(CombineModes.ItemIndex));
           2:
             ZoomResampleParallelTasks(nw, nh, bm, help,
-              FloatRect(0, 0, bm.Width, bm.Height), Filter, 0,
+              FloatRect(0, 0, bm.Width, bm.Height), Filter, r,
               TAlphaCombineMode(CombineModes.ItemIndex));
         end;
         StopWatch.Stop;
@@ -432,10 +421,13 @@ begin
   DisplayTarget;
   Timing := StopWatch.ElapsedMilliseconds;
   Time.Caption := Inttostr(Timing) + ' ms';
+  Radius.Caption := 'Filter-Radius: '+FloatToStrF(r,ffFixed,4,2);
 
   StopWatch.Reset;
   bm := TBitmap.Create;
   try
+    //keep TheSource from being altered by the
+    //WICImage-rescaling
     bm.Assign(TheSource);
     nw := TheSource.Width;
     for i := 1 to Steps.Value do
@@ -487,6 +479,8 @@ procedure TDemoMain.MakeTestBitmapClick(Sender: TObject);
 begin
   MakeTestBitmapAndRun;
 end;
+
+
 
 procedure TDemoMain.ResizeClick(Sender: TObject);
 begin
