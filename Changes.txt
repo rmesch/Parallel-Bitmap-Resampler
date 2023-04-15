@@ -1,6 +1,8 @@
 BitmapScaling:
+2023-4-15
+Added Doc folder with .pdf explaining algorithm.
 
-2024-4-13
+2023-4-13
 Moved thread setup into a record, makes for some less toxic methods.
 Demos allow you to explore changing the radius of the resampler.
 Fixed possible error, if only one logical processor is present.

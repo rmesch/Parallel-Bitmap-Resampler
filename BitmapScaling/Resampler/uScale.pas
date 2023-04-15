@@ -77,11 +77,12 @@ type
     Weights: array of integer; // floats scaled by $100  or $400
   end;
 
-  // amIndependent: all channels are resampled independently
+  // amIndependent: all channels are resampled independently, pixels with alpha=0 can contribute
+  // to the RGB-part of the result.
   //
   // amPreMultiply: RBG-channels are pre-multiplied by alpha-channel before resampling,
   // after that the resampled alpha-channel is divided out again, unless=0. This means that pixels
-  // with alpha=0 have no contribution to the result.
+  // with alpha=0 have no contribution to the RGB-part of the result.
   //
   // amIgnore: Resampling ignores the alpha-channel and only stores RGB into target. Useful if the alpha-channel
   // is not needed or the target already contains a custom alpha-channel which should not be changed
@@ -173,20 +174,20 @@ procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
-function FloatRect(Aleft, ATop, aRight, aBottom: double): TFloatRect;
+function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
   overload; inline;
 function FloatRect(ARect: TRect): TFloatRect; overload; inline;
 
 implementation
 
-function FloatRect(Aleft, ATop, aRight, aBottom: double): TFloatRect;
+function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
 begin
   with Result do
   begin
     Left := Aleft;
     Top := ATop;
-    Right := aRight;
-    Bottom := aBottom;
+    Right := ARight;
+    Bottom := ABottom;
   end;
 end;
 
@@ -295,7 +296,7 @@ const
   PrecisionFacts: array [TPrecision] of integer = ($100, $800);
   PreMultPrecision = 1 shl 2;
 
-  PointCount = 14;
+  PointCount = 12; //6 would be Simpson's rule, but I like emphasis on midpoint
   PointCountMinus2 = PointCount - 2;
   PointCountInv = 1 / PointCount;
 
@@ -363,11 +364,12 @@ begin
         x2 := System.Math.Min(x2, 1);
         // x3 is the new center
         x3 := 0.5 * (x1 + x2);
-        // evaluate integral_x1^x2 FT(x) dx using a mixture of
-        // the midpoint rule and the trapezoidal rule
-        // the midpoint parts seems to preserve details
+        // Evaluate integral_x1^x2 FT(x) dx using a mixture of
+        // the midpoint rule and the trapezoidal rule.
+        // The midpoint parts seems to preserve details
         // while the trapezoidal part and the intersection
-        // with the support of the filter prevents artefacts
+        // with the support of the filter prevents artefacts.
+        // PointCount=6 would be Simpson's rule.
         dw := PointCountInv*(x2 - x1) *
           (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
         // scale float to integer, integer=prec corresponds to float=1
@@ -576,13 +578,15 @@ var
   // TotalInit, TotalIncrease: TTotalProcedure;
   // ClampProcedure: TClampProcedure;
 begin
-  // These procedural variables caused too much of a slowdown.
+  // These procedural variables caused too much of a slowdown:
+
   // CombineInit := CombineInits[AlphaCombineMode];
   // CombineIncrease := CombineIncreases[AlphaCombineMode];
   // TotalInit := TotalInits[AlphaCombineMode];
   // TotalIncrease := TotalIncreases[AlphaCombineMode];
   // ClampProcedure := ClampProcedures[AlphaCombineMode];
 
+  //Resample vertically into Cache array which starts at runstart^
   miny := ContribsY[y].Min;
   highy := ContribsY[y].High;
   rs := rStart;
@@ -620,6 +624,8 @@ begin
     inc(Weighty);
     Dec(rs, Sbps);
   end; // for j
+
+  //Resample Cache-array horizontally into target row
   pT := PRGBQuad(rT);
   inc(pT, xmin);
   run := runstart;
