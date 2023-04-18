@@ -150,6 +150,7 @@ object DemoMain: TDemoMain
       Color = 3417354
       ParentColor = False
       TabOrder = 2
+      OnMouseWheel = ScrollBox1MouseWheel
       object Image1: TImage
         Left = 0
         Top = 0
@@ -345,6 +346,9 @@ object DemoMain: TDemoMain
           ParentColor = False
           TabOrder = 0
           OnClick = x
+          OnMouseWheel = ScrollBox1MouseWheel
+          ExplicitLeft = 0
+          ExplicitTop = 4
           object Image2: TImage
             Left = 0
             Top = 0
@@ -440,6 +444,7 @@ object DemoMain: TDemoMain
           ParentColor = False
           TabOrder = 0
           OnClick = x
+          OnMouseWheel = ScrollBox1MouseWheel
           object Image3: TImage
             Left = 1
             Top = -1
@@ -457,7 +462,6 @@ object DemoMain: TDemoMain
           Height = 39
           Align = alBottom
           TabOrder = 1
-          ExplicitLeft = 0
           object TimeWIC: TLabel
             Left = 256
             Top = 2

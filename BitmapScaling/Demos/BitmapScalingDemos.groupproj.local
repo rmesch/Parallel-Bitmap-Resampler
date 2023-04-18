@@ -1,9 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<BorlandProject>
-	<Transactions>
-    <Transaction>1899.12.30 00:00:00.000.889,D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\BitmapScaling.groupproj=D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demos\BitmapScalingDemos.groupproj</Transaction>
-  </Transactions>
-	<Default.Personality>
-		<Projects ActiveProject="D:\DelphiSource\DelphiRio\mystuffR\Bitmap Scaling\Demos\DemoScale.dproj"/>
-	</Default.Personality>
-</BorlandProject>

@@ -87,6 +87,7 @@ end;
 
 // pan from bottom-left to top-right
 // followed by zoom-out to full image
+// t runs from 0 to 1
 function Animation(t: double): TZoomPan; inline;
 begin
   if t < 0.5 then
@@ -220,7 +221,7 @@ var
   r: single;
 begin
   MovieBox.OnPaint:=nil;
-  Resample(MovieWidth, MovieHeight, TheSource, MovieBm, cfLanczos, 0, false,
+  Resample(MovieWidth, MovieHeight, TheSource, MovieBm, cfLanczos, 0, true,
     amIgnore);
   mt := Time.Value * 1000;
   mtInv := 1 / mt;

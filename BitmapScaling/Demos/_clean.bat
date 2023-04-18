@@ -21,4 +21,5 @@ del /s *.rsm
 del /s *.bdsproj
 del /s *.identcache
 del /s *.bdsproj.local
+del /s *.local
 del /s /A Thumbs.db

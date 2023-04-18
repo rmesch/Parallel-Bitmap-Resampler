@@ -1,4 +1,9 @@
 BitmapScaling:
+2023-4-19
+The routine using parallel threads can now be used in concurrent threads, 
+by assigning each calling thread its own resampling thread pool.
+A simple thumbnail explorer has been added as a demo.
+
 2023-4-15
 Added Doc folder with .pdf explaining algorithm.
 

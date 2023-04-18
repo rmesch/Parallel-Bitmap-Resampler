@@ -89,6 +89,8 @@ type
       Shift: TShiftState; x, Y: Integer);
     procedure FormShow(Sender: TObject);
     procedure ApplyClick(Sender: TObject);
+    procedure ScrollBox1MouseWheel(Sender: TObject; Shift: TShiftState;
+      WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
   private
     TheSource, TheOriginal, TheTarget, TheWIC: TBitmap;
     Aspect: double;
@@ -485,6 +487,14 @@ end;
 procedure TDemoMain.ResizeClick(Sender: TObject);
 begin
   DoScale;
+end;
+
+procedure TDemoMain.ScrollBox1MouseWheel(Sender: TObject; Shift: TShiftState;
+  WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+begin
+  with TScrollbox(sender) do
+  VertScrollbar.Position:=VertScrollbar.Position-WheelDelta;
+  handled:=true;
 end;
 
 procedure TDemoMain.ShowAlphaClick(Sender: TObject);

@@ -4,9 +4,9 @@ uses
   Vcl.Forms,
   uDemoScaleMain in 'uDemoScaleMain.pas' {DemoMain},
   uTools in 'uTools.pas',
-  uScale in '..\Resampler\uScale.pas',
   Vcl.Themes,
-  Vcl.Styles;
+  Vcl.Styles,
+  uScale in '..\Resampler\uScale.pas';
 
 {$R *.res}
 

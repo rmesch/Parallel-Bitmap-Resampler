@@ -38,7 +38,6 @@ object ZoomPanMain: TZoomPanMain
       Height = 56
       Align = alTop
       TabOrder = 0
-      ExplicitWidth = 303
       object GroupBox1: TGroupBox
         Left = 1
         Top = 1
@@ -65,7 +64,6 @@ object ZoomPanMain: TZoomPanMain
         Align = alClient
         Caption = 'Image from File'
         TabOrder = 1
-        ExplicitWidth = 181
         object Load: TButton
           Left = 16
           Top = 16
@@ -86,7 +84,6 @@ object ZoomPanMain: TZoomPanMain
       VertScrollBar.Tracking = True
       Align = alClient
       TabOrder = 1
-      ExplicitWidth = 303
       object Image1: TImage
         Left = 0
         Top = 0
@@ -105,7 +102,6 @@ object ZoomPanMain: TZoomPanMain
         'The test bitmap is very unforgiving when animated, try a real pi' +
         'cture.'
       TabOrder = 2
-      ExplicitWidth = 303
     end
   end
   object Panel2: TPanel
@@ -116,8 +112,6 @@ object ZoomPanMain: TZoomPanMain
     Align = alClient
     ParentBackground = False
     TabOrder = 1
-    ExplicitLeft = 308
-    ExplicitWidth = 517
     object Panel4: TPanel
       Left = 1
       Top = 1
@@ -125,7 +119,6 @@ object ZoomPanMain: TZoomPanMain
       Height = 56
       Align = alTop
       TabOrder = 0
-      ExplicitWidth = 515
       object GroupBox3: TGroupBox
         Left = 1
         Top = 1
@@ -134,9 +127,7 @@ object ZoomPanMain: TZoomPanMain
         Align = alClient
         Caption = 'Animation'
         TabOrder = 0
-        ExplicitLeft = 2
         ExplicitTop = -4
-        ExplicitWidth = 513
         object Label1: TLabel
           Left = 3
           Top = 12
@@ -231,7 +222,6 @@ object ZoomPanMain: TZoomPanMain
       ParentBackground = False
       TabOrder = 1
       OnResize = MoviePanelResize
-      ExplicitWidth = 515
       object MovieBox: TPaintBox
         Left = 32
         Top = 32
@@ -247,7 +237,6 @@ object ZoomPanMain: TZoomPanMain
       Height = 26
       Align = alBottom
       TabOrder = 2
-      ExplicitWidth = 515
       object FPS: TLabel
         Left = 16
         Top = 8

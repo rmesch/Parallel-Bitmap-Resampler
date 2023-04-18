@@ -13,17 +13,17 @@
   ***************************************************************************** }
 unit uScale;
 (* ***************************************************************
- High quality resampling of VCL-bitmaps using various filters
- and including fast threaded routines.
- Copyright 2003-2023 Renate Schaaf
- Inspired by A.Melander, M.Lischke, E.Grange.
- Supported Delphi-versions: 10.x and up, probably works with
- some earlier versions, but untested.
- Caution! The threaded routine itself is not threadsafe,
- it uses global variables for the threads.
- The "beef" of the algorithm used is in the routines
- MakeContributors and ProcessRow*
- *************************************************************** *)
+  High quality resampling of VCL-bitmaps using various filters
+  and including fast threaded routines.
+  Copyright 2003-2023 Renate Schaaf
+  Inspired by A.Melander, M.Lischke, E.Grange.
+  Supported Delphi-versions: 10.x and up, probably works with
+  some earlier versions, but untested.
+  Caution! The threaded routine itself is not threadsafe,
+  it uses global variables for the threads.
+  The "beef" of the algorithm used is in the routines
+  MakeContributors and ProcessRow*
+  *************************************************************** *)
 
 interface
 
@@ -41,12 +41,17 @@ uses WinApi.Windows, VCL.Graphics, System.Types, System.UITypes,
 {$ENDIF}
 
 type
-  // filter types
+  // Filter types
   TFilter = (cfBox, cfBilinear, cfBicubic, cfMine, cfLanczos, cfBSpline);
 
+const
+  // Default radii for the filters, can be made a tad smaller for performance
+  DefaultRadius: array [TFilter] of single = (0.5, 1, 2, 2, 3, 2);
+
+type
   TFilterFunction = function(x: double): double;
 
-  eParallelException = class(Exception); // waiting to be used
+  eParallelException = class(Exception);
 
   TFloatRect = record
     Left, Top, Right, Bottom: double;
@@ -74,7 +79,7 @@ type
     Min, High: integer;
     // Min: start source pixel
     // High+1: number of source pixels to contribute to the result
-    Weights: array of integer; // floats scaled by $100  or $400
+    Weights: array of integer; // floats scaled by $100  or $800
   end;
 
   // amIndependent: all channels are resampled independently, pixels with alpha=0 can contribute
@@ -90,6 +95,8 @@ type
 
   TContribArray = array of TContributor;
 
+  //A TResamplingThread is a simple worker-thread which can run anonymous procedures.
+  //Use is not restricted to resampling.
   TResamplingThread = class(TThread)
   private
     fResamplingThreadProc: TProc;
@@ -102,16 +109,30 @@ type
     Destructor Destroy; override;
   end;
 
-const
-  // can be made a tad smaller for performance
-  DefaultRadius: array [TFilter] of single = (0.5, 1, 2, 2, 3, 2);
+  //A record defining a simple thread pool. A pointer to such a record can be
+  //passed to the ZoomResampleParallel procedure to indicate that this thread
+  //pool should be used. This way the procedure can be used in concurrent threads.
+  TResamplingThreadPool = record
+    ResamplingThreads: array of TResamplingThread;
+    Initialized: boolean;
 
+    //creates the threads
+    procedure Initialize(aMaxThreadCount: integer; aPriority: TThreadpriority);
+
+    //frees the threads
+    procedure Finalize;
+  end;
+
+  PResamplingThreadPool = ^TResamplingThreadPool;
+
+const
   // constants used to divide the work for threading
   _ChunkHeight: integer = 8;
-  MaxThreadCount: integer = 64;
+  _MaxThreadCount: integer = 64;
 
 var
-  ResamplingThreads: array of TResamplingThread;
+  _DefaultThreadPool: TResamplingThreadPool;
+  // ResamplingThreads: array of TResamplingThread;
 
   /// <summary> Resampling of complete bitmaps with various options. Uses the ZoomResample.. functions internally </summary>
   /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
@@ -122,9 +143,11 @@ var
   /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
   /// <param name="Parallel"> If true the resampling work is divided into parallel threads. </param>
   /// <param name="AlphaCombineMode"> Options for combining the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
+  /// <param name="aThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses _DefaultThreadPool created on initialization </param>
 procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
   Filter: TFilter; Radius: single; Parallel: boolean;
-  AlphaCombineMode: TAlphaCombineMode);
+  AlphaCombineMode: TAlphaCombineMode;
+  aThreadPool: PResamplingThreadPool = nil);
 
 /// <summary> Resamples a rectangle of the Source to the Target. </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
@@ -139,8 +162,7 @@ procedure ZoomResample(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
-// !Caution: The following routine uses threads, but is itself not threadsafe, because the threads are
-// !global variables. If you must use it in more than one thread, protect it by a critical section.
+//The following routine is now threadsafe if each concurrent thread uses a different thread pool
 
 /// <summary> Resamples a rectangle of the Source to the Target using parallel threads. </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
@@ -151,9 +173,11 @@ procedure ZoomResample(NewWidth, NewHeight: integer;
 /// <param name="Filter"> Defines the kernel function for resampling </param>
 /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
 /// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
+/// <param name="aThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses _DefaultThreadPool created on initialization </param>
 procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
-  Radius: single; AlphaCombineMode: TAlphaCombineMode);
+  Radius: single; AlphaCombineMode: TAlphaCombineMode;
+  aThreadPool: PResamplingThreadPool = nil);
 
 // The following procedure allows you to compare performance of normal threads to
 // the built-in TTask-threading.
@@ -296,7 +320,7 @@ const
   PrecisionFacts: array [TPrecision] of integer = ($100, $800);
   PreMultPrecision = 1 shl 2;
 
-  PointCount = 12; //6 would be Simpson's rule, but I like emphasis on midpoint
+  PointCount = 12; // 6 would be Simpson's rule, but I like emphasis on midpoint
   PointCountMinus2 = PointCount - 2;
   PointCountInv = 1 / PointCount;
 
@@ -370,7 +394,7 @@ begin
         // while the trapezoidal part and the intersection
         // with the support of the filter prevents artefacts.
         // PointCount=6 would be Simpson's rule.
-        dw := PointCountInv*(x2 - x1) *
+        dw := PointCountInv * (x2 - x1) *
           (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
         // scale float to integer, integer=prec corresponds to float=1
         Weights[j] := round(prec * dw);
@@ -388,7 +412,7 @@ begin
         x3 := 0.5 * (x1 + x2);
         dw := PointCountInv * (x2 - x1) *
           (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
-        ds := round(prec*dw);
+        ds := round(prec * dw);
         Weights[0] := Weights[0] + ds;
         sum := sum + ds;
       end;
@@ -403,7 +427,7 @@ begin
         x3 := 0.5 * (x1 + x2);
         dw := PointCountInv * (x2 - x1) *
           (FT(x1) + FT(x2) + PointCountMinus2 * FT(x3));
-        ds := round(prec*dw);
+        ds := round(prec * dw);
         Weights[High] := Weights[High] + ds;
         sum := sum + ds;
       end;
@@ -413,7 +437,6 @@ begin
     { with Contribs[x] }
   end; { for x }
 end;
-
 
 // By using 3 different versions of ProcessRow, these are inlined
 Procedure CombineIndependent(const ps: PRGBQuad; const Weight: integer;
@@ -435,8 +458,9 @@ end;
 
 Procedure CombinePremult(const ps: PRGBQuad; const Weight: integer;
   const Cache: PBGRAInt); inline;
+var
+  alpha: integer;
 begin
-  var
   alpha := Weight * ps.rgbReserved;
   Cache.b := ps.rgbBlue * alpha div PreMultPrecision;
   Cache.g := ps.rgbGreen * alpha div PreMultPrecision;
@@ -463,8 +487,9 @@ end;
 
 Procedure IncreasePremult(const ps: PRGBQuad; const Weight: integer;
   const Cache: PBGRAInt); inline;
+var
+  alpha: integer;
 begin
-  var
   alpha := Weight * ps.rgbReserved;
   inc(Cache.b, ps.rgbBlue * alpha div PreMultPrecision);
   inc(Cache.g, ps.rgbGreen * alpha div PreMultPrecision);
@@ -586,7 +611,7 @@ begin
   // TotalIncrease := TotalIncreases[AlphaCombineMode];
   // ClampProcedure := ClampProcedures[AlphaCombineMode];
 
-  //Resample vertically into Cache array which starts at runstart^
+  // Resample vertically into Cache array which starts at runstart^
   miny := ContribsY[y].Min;
   highy := ContribsY[y].High;
   rs := rStart;
@@ -625,7 +650,7 @@ begin
     Dec(rs, Sbps);
   end; // for j
 
-  //Resample Cache-array horizontally into target row
+  // Resample Cache-array horizontally into target row
   pT := PRGBQuad(rT);
   inc(pT, xmin);
   run := runstart;
@@ -847,18 +872,27 @@ type
     CacheMatrix: TCacheMatrix;
     procedure PrepareResamplingThreads(NewWidth, NewHeight: integer;
       const Source, Target: TBitmap; Radius: single; Filter: TFilter;
-      SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode);
+      SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode;
+      aThreadPool: PResamplingThreadPool = nil);
   end;
 
 procedure TResamplingThreadSetup.PrepareResamplingThreads(NewWidth,
   NewHeight: integer; const Source, Target: TBitmap; Radius: single;
-  Filter: TFilter; SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode);
+  Filter: TFilter; SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode;
+  aThreadPool: PResamplingThreadPool = nil);
 var
   OldWidth, OldHeight: integer;
   yChunkCount: integer;
   yChunk: integer;
   j, Index: integer;
+  TM: TResamplingThreadPool;
 begin
+  if (aThreadPool = nil) then
+    TM := _DefaultThreadPool
+  else
+    TM := aThreadPool^;
+  if not TM.Initialized then
+    raise eParallelException.Create('Thread pool not initialized');
   OldWidth := Source.Width;
   OldHeight := Source.Height;
 
@@ -876,7 +910,7 @@ begin
   rTStart := Target.Scanline[0];
 
   yChunkCount := max(Min(NewHeight div _ChunkHeight + 1,
-    Length(ResamplingThreads)), 2);
+    Length(TM.ResamplingThreads)), 2);
   ThreadCount := yChunkCount;
 
   SetLength(ymin, ThreadCount);
@@ -913,8 +947,9 @@ begin
       RP := RowProcedures[AlphaCombineMode];
       for y := RTS.ymin[Index] to RTS.ymax[Index] do
       begin
-        RP(y, RTS.Sbps, RTS.Tbps, RTS.xminSource, RTS.xmaxSource, RTS.xmin, RTS.xmax, RTS.rStart, RTS.rTStart,
-          @RTS.CacheMatrix[Index][0], RTS.ContribsX, RTS.ContribsY);
+        RP(y, RTS.Sbps, RTS.Tbps, RTS.xminSource, RTS.xmaxSource, RTS.xmin,
+          RTS.xmax, RTS.rStart, RTS.rTStart, @RTS.CacheMatrix[Index][0],
+          RTS.ContribsX, RTS.ContribsY);
 
       end; // for y
     end; // procedure
@@ -922,24 +957,32 @@ end;
 
 procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
-  Radius: single; AlphaCombineMode: TAlphaCombineMode);
+  Radius: single; AlphaCombineMode: TAlphaCombineMode;
+  aThreadPool: PResamplingThreadPool = nil);
 var
   RTS: TResamplingThreadSetup;
   Index: integer;
+  TM: TResamplingThreadPool;
 begin
   if Radius = 0 then
     Radius := DefaultRadius[Filter];
+  if aThreadPool = nil then
+    TM := _DefaultThreadPool
+  else
+    TM := aThreadPool^;
+
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
   Target.SetSize(NewWidth, NewHeight);
 
   RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
-    Filter, SourceRect, AlphaCombineMode);
+    Filter, SourceRect, AlphaCombineMode, @TM);
 
   for Index := 0 to RTS.ThreadCount - 1 do
-    ResamplingThreads[Index].RunAnonProc(GetResamplingTask(RTS,Index,AlphaCombineMode));
+    TM.ResamplingThreads[Index].RunAnonProc(GetResamplingTask(RTS, Index,
+      AlphaCombineMode));
   for Index := 0 to RTS.ThreadCount - 1 do
-    ResamplingThreads[Index].Done.Waitfor(INFINITE);
+    TM.ResamplingThreads[Index].Done.Waitfor(INFINITE);
 end;
 
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
@@ -962,8 +1005,8 @@ begin
   SetLength(tasks, RTS.ThreadCount);
 
   for Index := 0 to RTS.ThreadCount - 1 do
-    tasks[Index]:=TTask.Run(GetResamplingTask(RTS,Index,AlphaCombineMode));
-  TTask.WaitForAll(tasks,INFINITE);
+    tasks[Index] := TTask.run(GetResamplingTask(RTS, Index, AlphaCombineMode));
+  TTask.WaitForAll(tasks, INFINITE);
 end;
 
 procedure ZoomResample(NewWidth, NewHeight: integer;
@@ -1020,15 +1063,16 @@ end;
 
 procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
   Filter: TFilter; Radius: single; Parallel: boolean;
-  AlphaCombineMode: TAlphaCombineMode);
+  AlphaCombineMode: TAlphaCombineMode;
+  aThreadPool: PResamplingThreadPool = nil);
 var
   r: TFloatRect;
 begin
-  r := FloatRect(Rect(0, 0, Source.Width, Source.Height));
+  r := FloatRect(0, 0, Source.Width, Source.Height);
   if Parallel then
 
     ZoomResampleParallelThreads(NewWidth, NewHeight, Source, Target, r, Filter,
-      Radius, AlphaCombineMode)
+      Radius, AlphaCombineMode, aThreadPool)
 
   else
 
@@ -1081,24 +1125,24 @@ begin
   Wakeup.SetEvent;
 end;
 
-procedure InitResamplingThreads;
+procedure InitDefaultResamplingThreads;
 begin
   // creating more threads than processors present does not seem to
   // speed up anything.
   // We need at least 2 threads, though, for the logic of the routine
   // dividing up the work
-  SetLength(ResamplingThreads,
-    max(Min(MaxThreadCount, TThread.ProcessorCount), 2));
-
-  for var i: integer := 0 to Length(ResamplingThreads) - 1 do
-  begin
-    ResamplingThreads[i] := TResamplingThread.Create;
-    ResamplingThreads[i].priority := tpHigher;
-    ResamplingThreads[i].Ready.Waitfor(INFINITE);
-  end;
+  _DefaultThreadPool.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount),
+    tpHigher);
 end;
 
-procedure FreeResamplingThreads;
+procedure FreeDefaultResamplingThreads;
+begin
+  _DefaultThreadPool.Finalize;
+end;
+
+{ TResamplingThreadPool }
+
+procedure TResamplingThreadPool.Finalize;
 begin
   for var i: integer := 0 to Length(ResamplingThreads) - 1 do
   begin
@@ -1108,6 +1152,21 @@ begin
     ResamplingThreads[i] := nil;
   end;
   SetLength(ResamplingThreads, 0);
+  Initialized := false;
+end;
+
+procedure TResamplingThreadPool.Initialize(aMaxThreadCount: integer;
+  aPriority: TThreadpriority);
+begin
+  SetLength(ResamplingThreads, max(aMaxThreadCount, 2));
+
+  for var i: integer := 0 to Length(ResamplingThreads) - 1 do
+  begin
+    ResamplingThreads[i] := TResamplingThread.Create;
+    ResamplingThreads[i].priority := aPriority;
+    ResamplingThreads[i].Ready.Waitfor(INFINITE);
+  end;
+  Initialized := true;
 end;
 
 initialization
@@ -1115,11 +1174,11 @@ initialization
 // The threads stay around all the time waiting to be woken up.
 // This looks terrible, but hardly consumes any additional CPU-time
 // at all. Watch task manager.
-InitResamplingThreads;
+InitDefaultResamplingThreads;
 
 finalization
 
-FreeResamplingThreads;
+FreeDefaultResamplingThreads;
 
 {$IFDEF O_MINUS}
 {$O-}
