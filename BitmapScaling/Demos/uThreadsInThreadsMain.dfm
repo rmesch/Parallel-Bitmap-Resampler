@@ -83,8 +83,6 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     StyleElements = [seBorder]
     OnMouseWheel = ThumbViewMouseWheel
     OnResize = ThumbViewResize
-    ExplicitLeft = 167
-    ExplicitTop = 70
   end
   object Memo1: TMemo
     Left = 600
@@ -114,8 +112,6 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
       DirLabel = Label1
       TabOrder = 0
       OnChange = DLBChange
-      ExplicitLeft = -4
-      ExplicitTop = 84
     end
     object Panel3: TPanel
       Left = 1
@@ -127,15 +123,13 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
       object Label2: TLabel
         Left = 1
         Top = 1
-        Width = 169
-        Height = 41
+        Width = 152
+        Height = 26
         Align = alClient
         Alignment = taCenter
         Caption = 'In this ancient tree you pick directories by double-clicking'
         Layout = tlCenter
         WordWrap = True
-        ExplicitWidth = 152
-        ExplicitHeight = 26
       end
     end
   end

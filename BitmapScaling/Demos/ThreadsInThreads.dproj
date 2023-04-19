@@ -105,6 +105,7 @@
         <VerInfo_Locale>1033</VerInfo_Locale>
         <DCC_Optimize>true</DCC_Optimize>
         <DCC_SYMBOL_PLATFORM>false</DCC_SYMBOL_PLATFORM>
+        <DCC_MapFile>3</DCC_MapFile>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>

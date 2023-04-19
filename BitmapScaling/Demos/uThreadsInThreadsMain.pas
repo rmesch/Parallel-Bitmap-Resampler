@@ -39,13 +39,15 @@ type
   end;
 
   TMakeThumbsThread = class(TThread)
+  private
+    procedure DoMakeThumbs;
   protected
-    fThumblist: PThumblist;
-    fThreadpool: PResamplingThreadpool;
     procedure Execute; override;
   public
-    DoAbort: boolean;
+    DoAbort, Working: boolean;
     MessageMemo: TMemo;
+    fThumblist: PThumblist;
+    fThreadpool: PResamplingThreadpool;
     Ready, Wakeup: TEvent;
     constructor Create;
     destructor Destroy; override;
@@ -70,6 +72,8 @@ type
       WheelDelta: integer; MousePos: TPoint; var Handled: boolean);
   private
     fThumblist: TThumblist;
+    fThumbsChanging: boolean;
+    fCurDirectory: string;
 
     // thread pool used in the thread creating the thumb images
     fThreadpool: TResamplingThreadPool;
@@ -77,11 +81,11 @@ type
     // thread generating the bitmaps for the thumbs
     MakeThumbsThread: TMakeThumbsThread;
 
-    //event handler for click on any thumb
+    // event handler for click on any thumb, shows the picture in a larger window
     procedure OnThumbClick(Sender: TObject);
 
-    //wakes up the thread
-    procedure MakeThumbBitmaps;
+    //respond to change of directory and wake up the MakeThumbsThread
+    procedure MakeNewThumbs;
     { Private-Deklarationen }
   public
     { Public-Deklarationen }
@@ -111,22 +115,21 @@ begin
   if (csLoading in ComponentState) or (csReading in ComponentState) or
     (csDestroying in ComponentState) then
     exit;
-  if assigned(MakeThumbsThread) then
-  begin
-    MakeThumbsThread.DoAbort := true;
-    MakeThumbsThread.Ready.WaitFor(Infinite);
-  end;
-  fThumblist.ThumbSize := Screen.Width div 12;
-  fThumblist.DetailsSize := Screen.Height div 21;
-  fThumblist.ThumbParent := ThumbView;
-  fThumblist.MakeLists(DLB.Directory, '*.bmp;*.jpg;*.png', OnThumbClick);
-  ThumbView.Invalidate;
-  // make the thumb-bitmaps in a thread
-  MakeThumbBitmaps;
+  //prevent reentry
+  if fThumbsChanging then
+    exit;
+  fThumbsChanging:=true;
+  fCurDirectory:=DLB.Directory;
+  MakeNewThumbs;
+  fThumbsChanging:=false;
 end;
 
 procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
 begin
+  fThreadpool.Initialize(min(16, TThread.ProcessorCount), tpHigher);
+  MakeThumbsThread := TMakeThumbsThread.Create;
+  MakeThumbsThread.Priority := tpHigher;
+  MakeThumbsThread.Ready.WaitFor(Infinite);
   DLB.Directory := TPath.GetPicturesPath;
 end;
 
@@ -215,13 +218,12 @@ begin
     sl.free;
   end;
   ThumbCount := FileList.Count;
-  //the next part takes *forever* in case you use styles
+  // the next part takes *forever* in case you use styles
   for i := 0 to ThumbCount - 1 do
   begin
     BitmapList.add(nil);
     TH := TThumbControl.Create(nil);
-    TH.StyleElements:=[];
-    TH.Parent := ThumbParent;
+    TH.StyleElements := [];
     TH.fThumblist := @self;
     ControlList.add(TH);
     TH.fThumbIndex := i;
@@ -240,12 +242,12 @@ var
   Name: string;
   r: TRect;
 begin
+  if (Index > ThumbCount - 1) or (Index < 0) or (not assigned(ThumbParent)) then
+    exit;
   aCanvas.Pen.Color := clSilver;
   aCanvas.Brush.Style := bsClear;
   aCanvas.Rectangle(0, 0, ThumbSize, ThumbSize);
   aCanvas.Rectangle(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize);
-  if Index > ThumbCount - 1 then
-    exit;
   Name := ExtractFileName(FileList[Index]);
   aCanvas.Font.Assign(TCrack(ThumbParent).Font);
   r := Rect(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize);
@@ -265,10 +267,15 @@ begin
   if not assigned(ThumbParent) then
     exit;
   ThumbParent.DisableAlign;
+  for i := 0 to ThumbCount - 1 do
+  begin
+    ControlList[i].Parent := nil;
+  end;
   top := 0;
   left := 0;
   for i := 0 to ThumbCount - 1 do
   begin
+    ControlList[i].Parent := ThumbParent;
     ControlList[i].SetBounds(left - ThumbParent.HorzScrollbar.Position,
       top - ThumbParent.VertScrollbar.Position, ThumbSize,
       ThumbSize + DetailsSize);
@@ -293,30 +300,27 @@ end;
 
 procedure TThreadsInThreadsMain.FormDestroy(Sender: TObject);
 begin
-  if assigned(MakeThumbsThread) then
-  begin
-    MakeThumbsThread.DoAbort := true;
-    MakeThumbsThread.Terminate;
-    MakeThumbsThread.Wakeup.SetEvent;
-    MakeThumbsThread.free;
-  end;
+  MakeThumbsThread.DoAbort := true;
+  MakeThumbsThread.Terminate;
+  MakeThumbsThread.Wakeup.SetEvent;
+  MakeThumbsThread.free;
   fThumblist.ClearThumbs;
-  if fThreadpool.Initialized then
-    fThreadpool.Finalize;
+  fThreadpool.Finalize;
 end;
 
-procedure TThreadsInThreadsMain.MakeThumbBitmaps;
+procedure TThreadsInThreadsMain.MakeNewThumbs;
 begin
-  if not fThreadpool.Initialized then
-    fThreadpool.Initialize(min(16, TThread.ProcessorCount), tpHigher);
-  if not assigned(MakeThumbsThread) then
-  begin
-    MakeThumbsThread := TMakeThumbsThread.Create;
-    MakeThumbsThread.Priority := tpHigher;
-    MakeThumbsThread.Ready.WaitFor(Infinite);
-  end;
+  if MakeThumbsThread.Working then
+    MakeThumbsThread.DoAbort := true;
+  Application.ProcessMessages;
+  MakeThumbsThread.Ready.WaitFor(Infinite);
   MakeThumbsThread.Ready.ResetEvent;
-  MakeThumbsThread.DoAbort := false;
+  fThumblist.ThumbSize := Screen.Width div 12;
+  fThumblist.DetailsSize := Screen.Height div 21;
+  fThumblist.ThumbParent := ThumbView;
+  fThumblist.MakeLists(fCurDirectory, '*.bmp;*.jpg;*.png', OnThumbClick);
+  ThumbView.Invalidate;
+  // make the thumb-bitmaps in a thread
   MakeThumbsThread.fThumblist := @fThumblist;
   MakeThumbsThread.fThreadpool := @fThreadpool;
   MakeThumbsThread.MessageMemo := Memo1;
@@ -408,7 +412,7 @@ begin
   inherited;
 end;
 
-procedure TMakeThumbsThread.Execute;
+procedure TMakeThumbsThread.DoMakeThumbs;
 var
   i: integer;
   bm, tm: TBitmap;
@@ -416,91 +420,95 @@ var
   UpdateMin, UpdateMax: integer;
   StopLoadFromFile, StopResample: TStopwatch;
 begin
+  Count := fThumblist^.ThumbCount;
+  StopLoadFromFile := TStopwatch.Create;
+  StopResample := TStopwatch.Create;
+  UpdateMin := 0;
+  for i := 0 to Count - 1 do
+  begin
+    StopLoadFromFile.Start;
+    if DoAbort then
+      exit;
+    WICSource.LoadFromFile(fThumblist.FileList[i]);
+    bm := TBitmap.Create;
+    try
+      bm.Assign(WICSource);
+      if bm.Width > bm.Height then
+      begin
+        w := fThumblist.ThumbSize - 4;
+        if bm.Width > 0 then
+          h := round(w * bm.Height / bm.Width)
+        else
+          h := 0;
+      end
+      else
+      begin
+        h := fThumblist.ThumbSize - 4;
+        if bm.Height > 0 then
+          w := round(h * bm.Width / bm.Height)
+        else
+          w := 0;
+      end;
+      StopLoadFromFile.Stop;
+      StopResample.Start;
+      if w * h > 0 then
+      begin
+        tm := TBitmap.Create;
+
+        // resample using a custom threadpool
+        uScale.Resample(w, h, bm, tm, cfBicubic, 0, true, amIgnore,
+          fThreadpool);
+        fThumblist.BitmapList[i] := tm; // fThumblist will free it
+      end;
+      StopResample.Stop;
+    finally
+      bm.free;
+    end;
+    if (i mod 10 = 9) or (i = Count - 1) then
+      if not DoAbort then
+      begin
+        UpdateMax := i;
+        TThread.Synchronize(TThread.Current,
+          procedure
+          var
+            j: integer;
+          begin
+            for j := UpdateMin to UpdateMax do
+              if not DoAbort then
+                fThumblist.ControlList[j].Invalidate;
+          end);
+        UpdateMin := UpdateMax + 1;
+      end;
+  end; // for i
+
+  if not DoAbort then
+    TThread.Synchronize(TThread.Current,
+      procedure
+      begin
+        MessageMemo.Lines.add(' ');
+        MessageMemo.Lines.add('Number of pictures: ' + IntToStr(Count));
+        MessageMemo.Lines.add('Load and decode: ' +
+          IntToStr(StopLoadFromFile.ElapsedMilliseconds) + ' ms');
+        MessageMemo.Lines.add('Resample: ' +
+          IntToStr(StopResample.ElapsedMilliseconds) + ' ms');
+      end);
+end;
+
+procedure TMakeThumbsThread.Execute;
+begin
   While not terminated do
   begin
     Ready.SetEvent;
+    Working := false;
     Wakeup.WaitFor(Infinite);
-    Assert(assigned(fThumblist));
-    Assert(assigned(fThreadpool));
-    Assert(assigned(MessageMemo));
     if not terminated then
     begin
       Wakeup.ResetEvent;
-      Count := fThumblist^.ThumbCount;
-      StopLoadFromFile := TStopwatch.Create;
-      StopResample := TStopwatch.Create;
-      UpdateMin := 0;
-      for i := 0 to Count - 1 do
-      begin
-        if DoAbort then
-          break;
-        StopLoadFromFile.Start;
-        WICSource.LoadFromFile(fThumblist.FileList[i]);
-        bm := TBitmap.Create;
-        try
-          bm.Assign(WICSource);
-          if bm.Width > bm.Height then
-          begin
-            w := fThumblist.ThumbSize - 4;
-            if bm.Width > 0 then
-              h := round(w * bm.Height / bm.Width)
-            else
-              h := 0;
-          end
-          else
-          begin
-            h := fThumblist.ThumbSize - 4;
-            if bm.Height > 0 then
-              w := round(h * bm.Width / bm.Height)
-            else
-              w := 0;
-          end;
-          StopLoadFromFile.Stop;
-          StopResample.Start;
-          if w * h > 0 then
-          begin
-            tm := TBitmap.Create;
-
-            // resample using a custom threadpool
-            uScale.Resample(w, h, bm, tm, cfBicubic, 0, true, amIgnore,
-              fThreadpool);
-
-            fThumblist.BitmapList[i] := tm; // fThumblist will free it
-          end;
-          StopResample.Stop;
-        finally
-          bm.free;
-        end;
-        if (i mod 10 = 9) or (i = Count - 1) then
-          if not DoAbort then
-          begin
-            UpdateMax := i;
-            TThread.Synchronize(TThread.Current,
-              procedure
-              var
-                j: integer;
-              begin
-                for j := UpdateMin to UpdateMax do
-                  fThumblist.ControlList[j].Invalidate;
-              end);
-            UpdateMin := UpdateMax + 1;
-          end;
-      end; // for i
-
-      if not DoAbort then
-        TThread.Synchronize(TThread.Current,
-          procedure
-          begin
-            MessageMemo.Lines.add(' ');
-            MessageMemo.Lines.add('Number of pictures: ' + IntToStr(Count));
-            MessageMemo.Lines.add('Load and decode: ' +
-              IntToStr(StopLoadFromFile.ElapsedMilliseconds) + ' ms');
-            MessageMemo.Lines.add('Resample: ' +
-              IntToStr(StopResample.ElapsedMilliseconds) + ' ms');
-          end);
-    end; // while not terminated
-  end;
-
+      DoAbort := false;
+      Working := true;
+      DoMakeThumbs;
+    end;
+  end; // while not terminated
 end;
 
 initialization
