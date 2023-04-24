@@ -1,4 +1,6 @@
 unit uZoomPanMain;
+//Shows how parallel resampling can be used to show
+//smooth zooms and pans into an image with a high frame rate.
 
 interface
 
@@ -191,17 +193,16 @@ end;
 
 procedure TZoomPanMain.LoadClick(Sender: TObject);
 var
-  p: TPicture;
+  WIC: TWICImage;
 begin
   if not OPD.Execute() then
     exit;
-  p := TPicture.Create;
+  WIC := TWICImage.Create;
   try
-    p.LoadFromFile(OPD.Filename);
-    TheSource.Assign(p.Graphic);
-    TheSource.PixelFormat := pf32bit;
+    WIC.LoadFromFile(OPD.Filename);
+    WICToBmp(WIC,TheSource);
   finally
-    p.Free;
+    WIC.Free;
   end;
   Aspect := TheSource.Width / TheSource.Height;
   Image1.Picture.Bitmap := TheSource;
@@ -221,6 +222,7 @@ var
   r: single;
 begin
   MovieBox.OnPaint:=nil;
+
   Resample(MovieWidth, MovieHeight, TheSource, MovieBm, cfLanczos, 0, true,
     amIgnore);
   mt := Time.Value * 1000;
@@ -238,13 +240,15 @@ begin
     begin
       t := elapsed * mtInv;
       ZoomRect := ZoomPanToFloatrect(Animation(t), MovieWidth, MovieHeight);
+      //resample zoomrect in source with parallel threads using default threadpool
       ZoomResampleParallelThreads(MovieWidth, MovieHeight, MovieBm, bm,
         ZoomRect, f, r, amIgnore);
       BitBlt(MovieBox.Canvas.Handle, 0, 0, MovieWidth, MovieHeight,
         bm.Canvas.Handle, 0, 0, SRCCopy);
       Inc(Frames);
       // This is a tight loop and has been coded like this
-      // for demonstration purposes only
+      // for demonstration purposes only.
+      // One could use a high precision timer instead.
       // sleep(1);
       elapsed := TimeGetTime - ts;
     end;

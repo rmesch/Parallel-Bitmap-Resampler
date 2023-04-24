@@ -137,11 +137,12 @@
             <Form>ThreadsInThreadsMain</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="..\Resampler\uScale.pas"/>
         <DCCReference Include="uShowPicture.pas">
             <Form>ShowPicture</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="uTools.pas"/>
+        <DCCReference Include="..\Resampler\uScale.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -170,6 +171,12 @@
             <Deployment Version="3">
                 <DeployFile LocalName="Win32\Debug\ThreadsInThreads.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
+                        <RemoteName>ThreadsInThreads.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Win64\Debug\ThreadsInThreads.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
                         <RemoteName>ThreadsInThreads.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>

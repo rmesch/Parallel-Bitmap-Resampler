@@ -3,10 +3,11 @@ program ThreadsInThreads;
 uses
   Vcl.Forms,
   uThreadsInThreadsMain in 'uThreadsInThreadsMain.pas' {ThreadsInThreadsMain},
-  uScale in '..\Resampler\uScale.pas',
   uShowPicture in 'uShowPicture.pas' {ShowPicture},
   Vcl.Themes,
-  Vcl.Styles;
+  Vcl.Styles,
+  uTools in 'uTools.pas',
+  uScale in '..\Resampler\uScale.pas';
 
 {$R *.res}
 

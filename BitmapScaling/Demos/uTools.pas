@@ -1,9 +1,35 @@
 unit uTools;
+// contains some helper routines for loading image formats into a TBitmap,
+// utilities to modify the alpha-channel and a class to generate nasty test-bitmaps.
 
 interface
 
 uses WinApi.Windows, WinApi.Wincodec, VCL.Graphics, System.SysUtils,
   VCL.ExtCtrls, System.Types, VCL.Imaging.pngimage, uScale;
+
+/// <summary> Assigns a TPngImage to a TBitmap without setting its alphaformat to afDefined </summary>
+procedure PngToBmp(const png: TPngImage; const bmp: TBitmap);
+
+/// <summary> Assigns a TWICImage to a TBitmap without setting its alphaformat to afDefined. A TWICImage can be used for fast decoding of image formats .jpg, .bmp, .png, .ico, .tif. </summary>
+procedure WICToBmp(const aWic: TWICImage; const bmp: TBitmap);
+
+// Caution: this routine can alter Source by pre-multiplication with alpha.
+// This happens for AlphaCombineMode = amPreMultiply
+// amIndependent is not supported
+procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
+  const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
+
+/// <summary> Magnifies Source to Target by enlarging pixels. For inspection of the pixel-structure. Sets Source and Target to pf24bit. </summary>
+procedure Magnify(const Source, target: TBitmap; fact: integer);
+
+/// <summary> Sets the alpha of all pixels to 255. bm must be 32bit </summary>
+procedure SetOpaque(const bm: TBitmap);
+
+/// <summary> Copies the alpha-channel of a bitmap to a pf8bit bitmap bAlpha </summary>
+procedure CopyAlphaChannel(const bm, bAlpha: TBitmap);
+
+/// <summary> Sets the alpha-value of all pixels to 0 </summary>
+procedure ClearAlphaChannel(const bm: TBitmap);
 
 // classes for generation of test bitmaps
 type
@@ -57,28 +83,51 @@ type
     procedure Generate(w: integer; TestKind: TTestKind);
   end;
 
-procedure Magnify(const Source, target: TBitmap; fact: byte);
-
 procedure MakeAlphaChannel(const bm: TBitmap);
-
-procedure SetOpaque(const bm: TBitmap);
-
-procedure CopyAlphaChannel(const bm, bAlpha: TBitmap);
-
-procedure PngToBmp(const png: TPngImage; const bmp: TBitmap);
-
-// Caution: this routine can alter Source by pre-multiplication with alpha.
-// This happens for AlphaCombineMode = amPreMultiply
-// amIndependent is not supported
-procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
-  const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
 
 implementation
 
 uses System.Math, System.Classes;
 
 var
+  // SourceWIC is created in initialization, this makes its use threadsafe, if used in 1 thread only.
   SourceWIC: TWICImage;
+
+procedure ClearAlphaChannel(const bm: TBitmap);
+begin
+  bm.PixelFormat := pf24bit;
+  bm.PixelFormat := pf32bit;
+end;
+
+procedure WICToBmp(const aWic: TWICImage; const bmp: TBitmap);
+var
+  LWicBitmap: IWICBitmapSource;
+  Stride: integer;
+  Buffer: array of byte;
+  BitmapInfo: TBitmapInfo;
+  w, h: integer;
+begin
+  w := aWic.Width;
+  h := aWic.Height;
+  Stride := w * 4;
+  SetLength(Buffer, Stride * h);
+
+  WICConvertBitmapSource(GUID_WICPixelFormat32bppBGRA, aWic.Handle, LWicBitmap);
+  LWicBitmap.CopyPixels(nil, Stride, Length(Buffer), @Buffer[0]);
+
+  FillChar(BitmapInfo, sizeof(BitmapInfo), 0);
+  BitmapInfo.bmiHeader.biSize := sizeof(BitmapInfo);
+  BitmapInfo.bmiHeader.biWidth := w;
+  BitmapInfo.bmiHeader.biHeight := -h;
+  BitmapInfo.bmiHeader.biPlanes := 1;
+  BitmapInfo.bmiHeader.biBitCount := 32;
+
+  bmp.PixelFormat := pf32bit;
+  bmp.SetSize(w, h);
+  SetDIBits(0, bmp.Handle, 0, h, @Buffer[0], BitmapInfo, DIB_RGB_COLORS);
+  bmp.AlphaFormat := afIgnored;
+
+end;
 
 procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
   const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
@@ -87,10 +136,10 @@ var
   Scaler: IWICBitmapScaler;
 begin
   Source.PixelFormat := pf32bit;
-  if AlphaCombineMode in [amIgnore, amIndependent] then
-    Source.AlphaFormat := afIgnored
+  if AlphaCombineMode = amPreMultiply then
+    Source.AlphaFormat := afDefined
   else
-    Source.AlphaFormat := afDefined;
+    Source.AlphaFormat := afIgnored;
   target.PixelFormat := pf32bit;
   target.SetSize(NewWidth, NewHeight);
   Factory := TWICImage.ImagingFactory;
@@ -100,6 +149,7 @@ begin
     WICBitmapInterpolationModeHighQualityCubic);
   SourceWIC.Handle := IWICBitmap(Scaler);
   target.Assign(SourceWIC);
+  target.AlphaFormat := afIgnored;
   Scaler := nil;
   Factory := nil;
 end;
@@ -134,7 +184,7 @@ begin
   end;
 end;
 
-procedure Magnify(const Source, target: TBitmap; fact: byte);
+procedure Magnify(const Source, target: TBitmap; fact: integer);
 var
   sw, sh: integer;
   x, y, i, j: integer;
@@ -259,6 +309,7 @@ var
   pix: PRGBQuad;
 
 begin
+  Assert(bm.PixelFormat = pf32bit, 'Bitmap must be 32bit');
   w := bm.Width;
   h := bm.Height;
   bps := ((w * 32 + 31) and not 31) div 8;
@@ -293,6 +344,7 @@ var
   i: byte;
 
 begin
+  Assert(bm.PixelFormat=pf32bit,'Bitmap must be 32bit');
   w := bm.Width;
   h := bm.Height;
   bAlpha.PixelFormat := pf8Bit;
@@ -418,6 +470,7 @@ begin
       pix.rgbRed := b;
       pix.rgbGreen := b;
       pix.rgbBlue := b;
+      pix.rgbReserved := 255; // make opaque
     end;
   end;
 
@@ -518,7 +571,7 @@ begin
       pix.rgbRed := b;
       pix.rgbGreen := b;
       pix.rgbBlue := b;
-      pix.rgbReserved := 0;
+      pix.rgbReserved := 255;
       inc(pix);
     end;
     dec(row, bps);

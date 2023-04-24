@@ -127,7 +127,6 @@ object ZoomPanMain: TZoomPanMain
         Align = alClient
         Caption = 'Animation'
         TabOrder = 0
-        ExplicitTop = -4
         object Label1: TLabel
           Left = 3
           Top = 12

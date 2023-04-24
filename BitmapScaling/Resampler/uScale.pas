@@ -19,10 +19,8 @@ unit uScale;
   Inspired by A.Melander, M.Lischke, E.Grange.
   Supported Delphi-versions: 10.x and up, probably works with
   some earlier versions, but untested.
-  Caution! The threaded routine itself is not threadsafe,
-  it uses global variables for the threads.
   The "beef" of the algorithm used is in the routines
-  MakeContributors and ProcessRow*
+  MakeContributors and ProcessRow
   *************************************************************** *)
 
 interface
@@ -49,37 +47,11 @@ const
   DefaultRadius: array [TFilter] of single = (0.5, 1, 2, 2, 3, 2);
 
 type
-  TFilterFunction = function(x: double): double;
-
+  // happens right now, if you use a custom thread pool which has not been initialized
   eParallelException = class(Exception);
 
   TFloatRect = record
     Left, Top, Right, Bottom: double;
-  end;
-
-  TBGRAInt = record
-    b, g, r, a: integer;
-  end;
-
-  PBGRAInt = ^TBGRAInt;
-
-  TBGRAIntArray = array of TBGRAInt;
-
-  TBGRInt = record
-    b, g, r: integer;
-  end;
-
-  PBGRInt = ^TBGRInt;
-
-  TBGRIntArray = array of TBGRInt;
-
-  TIntArray = array of integer;
-
-  TContributor = record
-    Min, High: integer;
-    // Min: start source pixel
-    // High+1: number of source pixels to contribute to the result
-    Weights: array of integer; // floats scaled by $100  or $800
   end;
 
   // amIndependent: all channels are resampled independently, pixels with alpha=0 can contribute
@@ -91,12 +63,14 @@ type
   //
   // amIgnore: Resampling ignores the alpha-channel and only stores RGB into target. Useful if the alpha-channel
   // is not needed or the target already contains a custom alpha-channel which should not be changed
-  TAlphaCombineMode = (amIndependent, amPreMultiply, amIgnore);
+  //
+  // amTransparentColor: The source is resampled while preserving transparent parts as indicatated by TransparentColor.
+  // The target can use the same color for transparency. Uses the alpha-channel only internally.
+  TAlphaCombineMode = (amIndependent, amPreMultiply, amIgnore,
+    amTransparentColor);
 
-  TContribArray = array of TContributor;
-
-  //A TResamplingThread is a simple worker-thread which can run anonymous procedures.
-  //Use is not restricted to resampling.
+  // A TResamplingThread is a simple worker-thread which can run anonymous procedures.
+  // Use is not restricted to resampling.
   TResamplingThread = class(TThread)
   private
     fResamplingThreadProc: TProc;
@@ -109,78 +83,74 @@ type
     Destructor Destroy; override;
   end;
 
-  //A record defining a simple thread pool. A pointer to such a record can be
-  //passed to the ZoomResampleParallel procedure to indicate that this thread
-  //pool should be used. This way the procedure can be used in concurrent threads.
+  // A record defining a simple thread pool. A pointer to such a record can be
+  // passed to the ZoomResampleParallelThreads procedure to indicate that this thread
+  // pool should be used. This way the procedure can be used in concurrent threads.
   TResamplingThreadPool = record
+    private
     ResamplingThreads: array of TResamplingThread;
     Initialized: boolean;
-
-    //creates the threads
+    public
+    /// <summary> Creates the threads. Call before you use it in parallel procedures. If already initialized, it will finalize first, don't call it unnecessarily. </summary>
     procedure Initialize(aMaxThreadCount: integer; aPriority: TThreadpriority);
-
-    //frees the threads
+    /// <summary> Frees the threads. Call when your code exits the part where you use parallel resampling to free up memory and CPU-time. If you don't finalize a custom threadpool, you will have a memory leak. </summary>
     procedure Finalize;
   end;
 
   PResamplingThreadPool = ^TResamplingThreadPool;
 
-const
-  // constants used to divide the work for threading
-  _ChunkHeight: integer = 8;
-  _MaxThreadCount: integer = 64;
+/// <summary> Initializes the default resampling thread pool. If already initialized, it does nothing. If not called, the default thread pool is initialized at the first use of a parallel procedure, causing a delay. </summary>
+procedure InitDefaultResamplingThreads;
 
-var
-  _DefaultThreadPool: TResamplingThreadPool;
-  // ResamplingThreads: array of TResamplingThread;
+/// <summary> Frees the default resampling threads. If they are initialized and not finalized the Finalization of uScale will do it. </summary>
+procedure FinalizeDefaultResamplingThreads;
 
-  /// <summary> Resampling of complete bitmaps with various options. Uses the ZoomResample.. functions internally </summary>
-  /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
-  /// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
-  /// <param name="Source"> Source bitmap, will be set to pf32bit </param>
-  /// <param name="Target"> Target bitmap, will be set to pf32bit </param>
-  /// <param name="Filter"> Defines the kernel function for resampling </param>
-  /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
-  /// <param name="Parallel"> If true the resampling work is divided into parallel threads. </param>
-  /// <param name="AlphaCombineMode"> Options for combining the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
-  /// <param name="aThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses _DefaultThreadPool created on initialization </param>
-procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
-  Filter: TFilter; Radius: single; Parallel: boolean;
-  AlphaCombineMode: TAlphaCombineMode;
-  aThreadPool: PResamplingThreadPool = nil);
-
-/// <summary> Resamples a rectangle of the Source to the Target. </summary>
+/// <summary> Resampling of complete bitmaps with various options. Uses the ZoomResample.. functions internally </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
 /// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
-/// <param name="Source"> Source bitmap, will be set to pf32bit </param>
-/// <param name="Target"> Target bitmap, will be set to pf32bit </param>
+/// <param name="Source"> Source bitmap, will be set to pf32bit. Works best if Source.Alphaformat=afIgnored. </param>
+/// <param name="Target"> Target bitmap, will be set to pf32bit. Target.Alphaformat will be = Source.Alphaformat. </param>
+/// <param name="Filter"> Defines the kernel function for resampling </param>
+/// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
+/// <param name="Parallel"> If true the resampling work is divided into parallel threads. </param>
+/// <param name="AlphaCombineMode"> Options for combining the alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
+/// <param name="ThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses a default thread pool. </param>
+procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
+  Filter: TFilter; Radius: single; Parallel: boolean;
+  AlphaCombineMode: TAlphaCombineMode; ThreadPool: PResamplingThreadPool = nil);
+
+/// <summary> Resamples a rectangle of the Source to the Target. Does not use threading. </summary>
+/// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
+/// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
+/// <param name="Source"> Source bitmap, will be set to pf32bit. Works best if Source.Alphaformat=afIgnored. </param>
+/// <param name="Target"> Target bitmap, will be set to pf32bit. Target.Alphaformat will be = Source.Alphaformat. </param>
 /// <param name="SourceRect"> Rectangle in the source which will be resampled, has floating point boundaries for smooth zooms. </param>
 /// <param name="Filter"> Defines the kernel function for resampling </param>
 /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
-/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
+/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
 procedure ZoomResample(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
-//The following routine is now threadsafe if each concurrent thread uses a different thread pool
+// The following routine is now threadsafe, if each concurrent thread uses a different thread pool
 
 /// <summary> Resamples a rectangle of the Source to the Target using parallel threads. </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
 /// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
-/// <param name="Source"> Source bitmap, will be set to pf32bit </param>
-/// <param name="Target"> Target bitmap, will be set to pf32bit </param>
+/// <param name="Source"> Source bitmap, will be set to pf32bit. Works best if Source.Alphaformat=afIgnored. </param>
+/// <param name="Target"> Target bitmap, will be set to pf32bit. Target.Alphaformat will be = Source.Alphaformat. </param>
 /// <param name="SourceRect"> Rectangle in the source which will be resampled, has floating point boundaries for smooth zooms. </param>
 /// <param name="Filter"> Defines the kernel function for resampling </param>
 /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
-/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
-/// <param name="aThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses _DefaultThreadPool created on initialization </param>
+/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
+/// <param name="ThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses a default thread pool</param>
 procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode;
-  aThreadPool: PResamplingThreadPool = nil);
+  ThreadPool: PResamplingThreadPool = nil);
 
-// The following procedure allows you to compare performance of normal threads to
-// the built-in TTask-threading.
+// The following procedure allows you to compare performance of TResamplingThreads to
+// the built-in TTask-threading. Is currently not threadsafe.
 // Timings with TTask tend to be erratic. Sometimes it takes a very long time,
 // I think this happens whenever the system deems it necessary to re-initialize
 // the threading-framework.
@@ -188,12 +158,12 @@ procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
 /// <summary> Resamples a rectangle of the Source to the Target using parallel tasks (TTask). </summary>
 /// <param name="NewWidth"> Width of target bitmap. Target will be resized. </param>
 /// <param name="NewHeight"> Height of target bitmap. Target will be resized. </param>
-/// <param name="Source"> Source bitmap, will be set to pf32bit </param>
-/// <param name="Target"> Target bitmap, will be set to pf32bit </param>
+/// <param name="Source"> Source bitmap, will be set to pf32bit. Works best if Source.Alphaformat=afIgnored. </param>
+/// <param name="Target"> Target bitmap, will be set to pf32bit. Target.Alphaformat will be = Source.Alphaformat. </param>
 /// <param name="SourceRect"> Rectangle in the source which will be resampled, has floating point boundaries for smooth zooms. </param>
 /// <param name="Filter"> Defines the kernel function for resampling </param>
 /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
-/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
+/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
@@ -203,6 +173,49 @@ function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
 function FloatRect(ARect: TRect): TFloatRect; overload; inline;
 
 implementation
+
+var
+  _DefaultThreadPool: TResamplingThreadPool;
+
+type
+  TFilterFunction = function(x: double): double;
+
+  TBGRAInt = record
+    b, g, r, a: integer;
+  end;
+
+  PBGRAInt = ^TBGRAInt;
+
+  TBGRAIntArray = array of TBGRAInt;
+
+  TCacheMatrix = array of TBGRAIntArray;
+
+  TIntArray = array of integer;
+
+  TContributor = record
+    Min, High: integer;
+    // Min: start source pixel
+    // High+1: number of source pixels to contribute to the result
+    Weights: array of integer; // floats scaled by $100  or $800
+  end;
+
+  TContribArray = array of TContributor;
+
+const
+  // constants used to divide the work for threading
+  _ChunkHeight: integer = 8;
+  _MaxThreadCount: integer = 64;
+
+type
+  TPrecision = (prLow, prHigh);
+
+const
+  PrecisionFacts: array [TPrecision] of integer = ($100, $800);
+  PreMultPrecision = 1 shl 2;
+
+  PointCount = 12; // 6 would be Simpson's rule, but I like emphasis on midpoint
+  PointCountMinus2 = PointCount - 2;
+  PointCountInv = 1 / PointCount;
 
 function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
 begin
@@ -312,17 +325,6 @@ end;
 const
   FilterFunctions: array [TFilter] of TFilterFunction = (Box, Linear, Bicubic,
     Mine, Lanczos, BSpline);
-
-type
-  TPrecision = (prLow, prHigh);
-
-const
-  PrecisionFacts: array [TPrecision] of integer = ($100, $800);
-  PreMultPrecision = 1 shl 2;
-
-  PointCount = 12; // 6 would be Simpson's rule, but I like emphasis on midpoint
-  PointCountMinus2 = PointCount - 2;
-  PointCountInv = 1 / PointCount;
 
 procedure MakeContributors(r: single; SourceSize, TargetSize: integer;
   SourceStart, SourceFloatwidth: double; Filter: TFilter; precision: TPrecision;
@@ -438,97 +440,97 @@ begin
   end; { for x }
 end;
 
-// By using 3 different versions of ProcessRow, these are inlined
-Procedure CombineIndependent(const ps: PRGBQuad; const Weight: integer;
-  const Cache: PBGRAInt); inline;
-begin
-  Cache.b := Weight * ps.rgbBlue;
-  Cache.g := Weight * ps.rgbGreen;
-  Cache.r := Weight * ps.rgbRed;
-  Cache.a := Weight * ps.rgbReserved;
-end;
-
-Procedure CombineIgnore(const ps: PRGBQuad; const Weight: integer;
-  const Cache: PBGRAInt); inline;
-begin
-  Cache.b := Weight * ps.rgbBlue;
-  Cache.g := Weight * ps.rgbGreen;
-  Cache.r := Weight * ps.rgbRed;
-end;
-
-Procedure CombinePremult(const ps: PRGBQuad; const Weight: integer;
-  const Cache: PBGRAInt); inline;
+procedure Combine(const ps: PRGBQuad; const Weight: integer;
+  const Cache: PBGRAInt; const acm: TAlphaCombineMode); inline;
 var
   alpha: integer;
 begin
-  alpha := Weight * ps.rgbReserved;
-  Cache.b := ps.rgbBlue * alpha div PreMultPrecision;
-  Cache.g := ps.rgbGreen * alpha div PreMultPrecision;
-  Cache.r := ps.rgbRed * alpha div PreMultPrecision;
-  Cache.a := alpha;
+  if acm in [amIndependent, amIgnore] then
+  begin
+    Cache.b := Weight * ps.rgbBlue;
+    Cache.g := Weight * ps.rgbGreen;
+    Cache.r := Weight * ps.rgbRed;
+    if acm = amIndependent then
+      Cache.a := Weight * ps.rgbReserved;
+  end
+  else
+  begin
+    if ps.rgbReserved > 0 then
+    begin
+      alpha := Weight * ps.rgbReserved;
+      Cache.b := MulDiv(ps.rgbBlue, alpha, PreMultPrecision);
+      Cache.g := MulDiv(ps.rgbGreen, alpha, PreMultPrecision);
+      Cache.r := MulDiv(ps.rgbRed, alpha, PreMultPrecision);
+      Cache.a := alpha;
+    end
+    else
+      Cache^ := Default (TBGRAInt);
+  end;
 end;
 
-Procedure IncreaseIndependent(const ps: PRGBQuad; const Weight: integer;
-  const Cache: PBGRAInt); inline;
-begin
-  inc(Cache.b, Weight * ps.rgbBlue);
-  inc(Cache.g, Weight * ps.rgbGreen);
-  inc(Cache.r, Weight * ps.rgbRed);
-  inc(Cache.a, Weight * ps.rgbReserved);
-end;
-
-Procedure IncreaseIgnore(const ps: PRGBQuad; const Weight: integer;
-  const Cache: PBGRAInt); inline;
-begin
-  inc(Cache.b, Weight * ps.rgbBlue);
-  inc(Cache.g, Weight * ps.rgbGreen);
-  inc(Cache.r, Weight * ps.rgbRed);
-end;
-
-Procedure IncreasePremult(const ps: PRGBQuad; const Weight: integer;
-  const Cache: PBGRAInt); inline;
+procedure Increase(const ps: PRGBQuad; const Weight: integer;
+  const Cache: PBGRAInt; const acm: TAlphaCombineMode); inline;
 var
   alpha: integer;
 begin
-  alpha := Weight * ps.rgbReserved;
-  inc(Cache.b, ps.rgbBlue * alpha div PreMultPrecision);
-  inc(Cache.g, ps.rgbGreen * alpha div PreMultPrecision);
-  inc(Cache.r, ps.rgbRed * alpha div PreMultPrecision);
-  inc(Cache.a, alpha);
+  if acm in [amIndependent, amIgnore] then
+  begin
+    inc(Cache.b, Weight * ps.rgbBlue);
+    inc(Cache.g, Weight * ps.rgbGreen);
+    inc(Cache.r, Weight * ps.rgbRed);
+    if acm = amIndependent then
+      inc(Cache.a, Weight * ps.rgbReserved);
+  end
+  else if ps.rgbReserved > 0 then
+  begin
+    alpha := Weight * ps.rgbReserved;
+    inc(Cache.b, MulDiv(ps.rgbBlue, alpha, PreMultPrecision));
+    inc(Cache.g, MulDiv(ps.rgbGreen, alpha, PreMultPrecision));
+    inc(Cache.r, MulDiv(ps.rgbRed, alpha, PreMultPrecision));
+    inc(Cache.a, alpha);
+  end;
 end;
 
 procedure InitTotal(const Cache: PBGRAInt; const Weight: integer;
-  var Total: TBGRAInt); inline;
+  var Total: TBGRAInt; const acm: TAlphaCombineMode); inline;
 begin
-  Total.b := Weight * Cache.b;
-  Total.g := Weight * Cache.g;
-  Total.r := Weight * Cache.r;
-  Total.a := Weight * Cache.a;
-end;
-
-procedure InitTotalIgnore(const Cache: PBGRAInt; const Weight: integer;
-  var Total: TBGRAInt); inline;
-begin
-  Total.b := Weight * Cache.b;
-  Total.g := Weight * Cache.g;
-  Total.r := Weight * Cache.r;
+  if acm in [amIndependent, amIgnore] then
+  begin
+    Total.b := Weight * Cache.b;
+    Total.g := Weight * Cache.g;
+    Total.r := Weight * Cache.r;
+    if acm = amIndependent then
+      Total.a := Weight * Cache.a;
+  end
+  else if Cache.a <> 0 then
+  begin
+    Total.b := Weight * Cache.b;
+    Total.g := Weight * Cache.g;
+    Total.r := Weight * Cache.r;
+    Total.a := Weight * Cache.a;
+  end
+  else
+    Total := Default (TBGRAInt);
 end;
 
 procedure IncreaseTotal(const Cache: PBGRAInt; const Weight: integer;
-  var Total: TBGRAInt); inline;
+  var Total: TBGRAInt; const acm: TAlphaCombineMode); inline;
 begin
-  inc(Total.b, Weight * Cache.b);
-  inc(Total.g, Weight * Cache.g);
-  inc(Total.r, Weight * Cache.r);
-  inc(Total.a, Weight * Cache.a);
-end;
-
-procedure IncreaseTotalIgnore(const Cache: PBGRAInt; const Weight: integer;
-  var Total: TBGRAInt); inline;
-begin
-  inc(Total.b, Weight * Cache.b);
-  inc(Total.g, Weight * Cache.g);
-  inc(Total.r, Weight * Cache.r);
+  if acm in [amIndependent, amIgnore] then
+  begin
+    inc(Total.b, Weight * Cache.b);
+    inc(Total.g, Weight * Cache.g);
+    inc(Total.r, Weight * Cache.r);
+    if acm = amIndependent then
+      inc(Total.a, Weight * Cache.a);
+  end
+  else if Cache.a <> 0 then
+  begin
+    inc(Total.b, Weight * Cache.b);
+    inc(Total.g, Weight * Cache.g);
+    inc(Total.r, Weight * Cache.r);
+    inc(Total.a, Weight * Cache.a);
+  end;
 end;
 
 procedure ClampIndependent(const Total: TBGRAInt; const pT: PRGBQuad); inline;
@@ -562,217 +564,10 @@ begin
     pT^ := Default (TRGBQuad);
 end;
 
-type
-  TCombineProcedure = procedure(const ps: PRGBQuad; const Weight: integer;
-    const Cache: PBGRAInt);
-  TTotalProcedure = procedure(const Cache: PBGRAInt; const Weight: integer;
-    var Total: TBGRAInt);
-  TClampProcedure = procedure(const Total: TBGRAInt; const pT: PRGBQuad);
-
-  TRowProcedure = procedure(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
-    xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
-    const ContribsX, ContribsY: TContribArray);
-
-  {
-    const
-    CombineInits: array [TAlphaCombineMode] of TCombineProcedure =
-    (CombineIndependent, CombinePremult, CombineIgnore);
-    CombineIncreases: array [TAlphaCombineMode] of TCombineProcedure =
-    (IncreaseIndependent, IncreasePremult, IncreaseIgnore);
-    TotalInits: array [TAlphaCombineMode] of TTotalProcedure = (InitTotal,
-    InitTotal, InitTotalIgnore);
-    TotalIncreases: array [TAlphaCombineMode] of TTotalProcedure = (IncreaseTotal,
-    IncreaseTotal, IncreaseTotalIgnore);
-    ClampProcedures: array [TAlphaCombineMode] of TClampProcedure =
-    (ClampIndependent, ClampPreMult, ClampIgnore);
-  }
-
-procedure ProcessRowIndependent(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
+procedure ProcessRow(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
   xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
-  const ContribsX, ContribsY: TContribArray);
-var
-  ps, pT: PRGBQuad;
-  rs, rT: PByte;
-  x, i, j: integer;
-  highx, highy, minx, miny: integer;
-  Weightx, Weighty: PInteger;
-  Weight: integer;
-  Total: TBGRAInt;
-  run: PBGRAInt;
-  // CombineInit, CombineIncrease: TCombineProcedure;
-  // TotalInit, TotalIncrease: TTotalProcedure;
-  // ClampProcedure: TClampProcedure;
-begin
-  // These procedural variables caused too much of a slowdown:
-
-  // CombineInit := CombineInits[AlphaCombineMode];
-  // CombineIncrease := CombineIncreases[AlphaCombineMode];
-  // TotalInit := TotalInits[AlphaCombineMode];
-  // TotalIncrease := TotalIncreases[AlphaCombineMode];
-  // ClampProcedure := ClampProcedures[AlphaCombineMode];
-
-  // Resample vertically into Cache array which starts at runstart^
-  miny := ContribsY[y].Min;
-  highy := ContribsY[y].High;
-  rs := rStart;
-  rT := rTStart;
-  Dec(rs, Sbps * miny);
-  Dec(rT, Tbps * y);
-  inc(rs, 4 * xminSource);
-  Weighty := @ContribsY[y].Weights[0];
-  ps := PRGBQuad(rs);
-  run := runstart;
-  Weight := Weighty^;
-  for x := xminSource to xmaxSource do
-  begin
-
-    CombineIndependent(ps, Weight, run);
-
-    inc(ps);
-    inc(run);
-  end; // for x
-  inc(Weighty);
-  Dec(rs, Sbps);
-  for j := 1 to highy do
-  begin
-    ps := PRGBQuad(rs);
-    run := runstart;
-    Weight := Weighty^;
-    for x := xminSource to xmaxSource do
-    begin
-
-      IncreaseIndependent(ps, Weight, run);
-
-      inc(ps);
-      inc(run);
-    end; // for x
-    inc(Weighty);
-    Dec(rs, Sbps);
-  end; // for j
-
-  // Resample Cache-array horizontally into target row
-  pT := PRGBQuad(rT);
-  inc(pT, xmin);
-  run := runstart;
-  var
-    jump: integer := xminSource;
-  for x := xmin to xmax do
-  begin
-    minx := ContribsX[x].Min;
-    highx := ContribsX[x].High;
-    Weightx := @ContribsX[x].Weights[0];
-    inc(run, minx - jump);
-
-    InitTotal(run, Weightx^, Total);
-
-    inc(Weightx);
-    inc(run);
-    for i := 1 to highx do
-    begin
-
-      IncreaseTotal(run, Weightx^, Total);
-
-      inc(Weightx);
-      inc(run);
-    end;
-    jump := highx + 1 + minx;
-
-    ClampIndependent(Total, pT);
-
-    inc(pT);
-  end; // for x
-end;
-
-procedure ProcessRowPreMult(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
-  xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
-  const ContribsX, ContribsY: TContribArray);
-var
-  ps, pT: PRGBQuad;
-  rs, rT: PByte;
-  x, i, j: integer;
-  highx, highy, minx, miny: integer;
-  Weightx, Weighty: PInteger;
-  Weight: integer;
-  Total: TBGRAInt;
-  run: PBGRAInt;
-
-begin
-
-  miny := ContribsY[y].Min;
-  highy := ContribsY[y].High;
-  rs := rStart;
-  rT := rTStart;
-  Dec(rs, Sbps * miny);
-  Dec(rT, Tbps * y);
-  inc(rs, 4 * xminSource);
-  Weighty := @ContribsY[y].Weights[0];
-  ps := PRGBQuad(rs);
-  run := runstart;
-  Weight := Weighty^;
-
-  for x := xminSource to xmaxSource do
-  begin
-    if ps.rgbReserved > 0 then
-      CombinePremult(ps, Weight, run)
-    else
-      run^ := Default (TBGRAInt);
-    inc(ps);
-    inc(run);
-  end; // for x
-  inc(Weighty);
-  Dec(rs, Sbps);
-  for j := 1 to highy do
-  begin
-    ps := PRGBQuad(rs);
-    run := runstart;
-    Weight := Weighty^;
-    for x := xminSource to xmaxSource do
-    begin
-      if ps.rgbReserved > 0 then
-        IncreasePremult(ps, Weight, run);
-      inc(ps);
-      inc(run);
-    end; // for x
-    inc(Weighty);
-    Dec(rs, Sbps);
-  end; // for j
-  pT := PRGBQuad(rT);
-  inc(pT, xmin);
-  run := runstart;
-  var
-    jump: integer := xminSource;
-  for x := xmin to xmax do
-  begin
-    minx := ContribsX[x].Min;
-    highx := ContribsX[x].High;
-    Weightx := @ContribsX[x].Weights[0];
-    inc(run, minx - jump);
-    if run.a <> 0 then
-      InitTotal(run, Weightx^, Total)
-    else
-      Total := Default (TBGRAInt);
-
-    inc(Weightx);
-    inc(run);
-    for i := 1 to highx do
-    begin
-      if run.a <> 0 then
-        IncreaseTotal(run, Weightx^, Total);
-
-      inc(Weightx);
-      inc(run);
-    end;
-    jump := highx + 1 + minx;
-
-    ClampPreMult(Total, pT);
-
-    inc(pT);
-  end; // for x
-end;
-
-procedure ProcessRowIgnore(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
-  xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
-  const ContribsX, ContribsY: TContribArray);
+  const ContribsX, ContribsY: TContribArray;
+  AlphaCombineMode: TAlphaCombineMode); inline;
 var
   ps, pT: PRGBQuad;
   rs, rT: PByte;
@@ -797,7 +592,7 @@ begin
   for x := xminSource to xmaxSource do
   begin
 
-    CombineIgnore(ps, Weight, run);
+    Combine(ps, Weight, run, AlphaCombineMode);
 
     inc(ps);
     inc(run);
@@ -812,7 +607,7 @@ begin
     for x := xminSource to xmaxSource do
     begin
 
-      IncreaseIgnore(ps, Weight, run);
+      Increase(ps, Weight, run, AlphaCombineMode);
 
       inc(ps);
       inc(run);
@@ -832,35 +627,46 @@ begin
     Weightx := @ContribsX[x].Weights[0];
     inc(run, minx - jump);
 
-    InitTotalIgnore(run, Weightx^, Total);
+    InitTotal(run, Weightx^, Total, AlphaCombineMode);
 
     inc(Weightx);
     inc(run);
     for i := 1 to highx do
     begin
 
-      IncreaseTotalIgnore(run, Weightx^, Total);
+      IncreaseTotal(run, Weightx^, Total, AlphaCombineMode);
 
       inc(Weightx);
       inc(run);
     end;
     jump := highx + 1 + minx;
 
-    ClampIgnore(Total, pT);
+    Case AlphaCombineMode of
+      amIndependent:
+        ClampIndependent(Total, pT);
+      amPreMultiply:
+        ClampPreMult(Total, pT);
+      amIgnore:
+        ClampIgnore(Total, pT);
+      amTransparentColor:
+        ClampPreMult(Total, pT);
+    end;
+
+    if AlphaCombineMode = amTransparentColor then
+      if pT.rgbReserved > 192 then
+        pT.rgbReserved := 255
+      else
+        pT.rgbReserved := 0;
 
     inc(pT);
   end; // for x
 end;
 
 const
-  Precisions: array [TAlphaCombineMode] of TPrecision = (prHigh, prLow, prHigh);
-
-  RowProcedures: array [TAlphaCombineMode] of TRowProcedure =
-    (ProcessRowIndependent, ProcessRowPreMult, ProcessRowIgnore);
+  Precisions: array [TAlphaCombineMode] of TPrecision = (prHigh, prLow,
+    prHigh, prLow);
 
 type
-
-  TCacheMatrix = array of TBGRAIntArray;
 
   TResamplingThreadSetup = record
     Tbps, Sbps: integer;
@@ -873,26 +679,21 @@ type
     procedure PrepareResamplingThreads(NewWidth, NewHeight: integer;
       const Source, Target: TBitmap; Radius: single; Filter: TFilter;
       SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode;
-      aThreadPool: PResamplingThreadPool = nil);
+      aMaxThreadCount: integer);
   end;
+
+  PResamplingThreadSetup = ^TResamplingThreadSetup;
 
 procedure TResamplingThreadSetup.PrepareResamplingThreads(NewWidth,
   NewHeight: integer; const Source, Target: TBitmap; Radius: single;
   Filter: TFilter; SourceRect: TFloatRect; AlphaCombineMode: TAlphaCombineMode;
-  aThreadPool: PResamplingThreadPool = nil);
+  aMaxThreadCount: integer);
 var
   OldWidth, OldHeight: integer;
   yChunkCount: integer;
   yChunk: integer;
   j, Index: integer;
-  TM: TResamplingThreadPool;
 begin
-  if (aThreadPool = nil) then
-    TM := _DefaultThreadPool
-  else
-    TM := aThreadPool^;
-  if not TM.Initialized then
-    raise eParallelException.Create('Thread pool not initialized');
   OldWidth := Source.Width;
   OldHeight := Source.Height;
 
@@ -909,8 +710,7 @@ begin
   rStart := Source.Scanline[0];
   rTStart := Target.Scanline[0];
 
-  yChunkCount := max(Min(NewHeight div _ChunkHeight + 1,
-    Length(TM.ResamplingThreads)), 2);
+  yChunkCount := max(Min(NewHeight div _ChunkHeight + 1, aMaxThreadCount), 2);
   ThreadCount := yChunkCount;
 
   SetLength(ymin, ThreadCount);
@@ -936,54 +736,165 @@ begin
     SetLength(CacheMatrix[Index], xmaxSource - xminSource + 1);
 end;
 
-function GetResamplingTask(RTS: TResamplingThreadSetup; Index: integer;
+function GetResamplingTask(const RTS: TResamplingThreadSetup; Index: integer;
   AlphaCombineMode: TAlphaCombineMode): TProc;
 begin
   Result := procedure
     var
       y: integer;
-      RP: TRowProcedure;
     begin
-      RP := RowProcedures[AlphaCombineMode];
       for y := RTS.ymin[Index] to RTS.ymax[Index] do
       begin
-        RP(y, RTS.Sbps, RTS.Tbps, RTS.xminSource, RTS.xmaxSource, RTS.xmin,
-          RTS.xmax, RTS.rStart, RTS.rTStart, @RTS.CacheMatrix[Index][0],
-          RTS.ContribsX, RTS.ContribsY);
+        ProcessRow(y, RTS.Sbps, RTS.Tbps, RTS.xminSource, RTS.xmaxSource,
+          RTS.xmin, RTS.xmax, RTS.rStart, RTS.rTStart,
+          @RTS.CacheMatrix[Index][0], RTS.ContribsX, RTS.ContribsY,
+          AlphaCombineMode);
 
       end; // for y
     end; // procedure
 end;
 
+function TransColorToAlpha(const bm: TBitmap): TColor;
+var
+  row: PByte;
+  pix: PRGBQuad;
+  pixColor: TRgbTriple;
+  TransColor: TColor;
+  bps, x, y: integer;
+  function SameColor(p1, p2: PRGBTriple): boolean;
+  begin
+    Result := (p1.rgbtBlue = p2.rgbtBlue) and (p1.rgbtGreen = p2.rgbtGreen) and
+      (p1.rgbtRed = p2.rgbtRed);
+  end;
+
+begin
+  // GetTransparentColor uses bm.Canvas
+  bm.Canvas.Lock;
+  Result := bm.TransparentColor;
+  bm.Canvas.Unlock;
+  TransColor := ColorToRGB(Result);
+  pixColor.rgbtBlue := GetBValue(TransColor);
+  pixColor.rgbtGreen := GetGValue(TransColor);
+  pixColor.rgbtRed := GetRValue(TransColor);
+  bps := ((bm.Width * 32 + 31) and not 31) div 8;
+  row := bm.Scanline[0];
+  for y := 1 to bm.Height do
+  begin
+    pix := PRGBQuad(row);
+    for x := 1 to bm.Width do
+    begin
+      if SameColor(PRGBTriple(pix), @pixColor) then
+        pix.rgbReserved := 0
+      else
+        pix.rgbReserved := 255;
+      inc(pix);
+    end;
+    Dec(row, bps);
+  end;
+
+end;
+
+procedure AlphaToTransparentColor(const bm: TBitmap; TransColor: TColor);
+var
+  row: PByte;
+  pix: PRGBQuad;
+  pixColor: TRgbTriple;
+  bps, x, y: integer;
+  c: TColor;
+begin
+  c := ColorToRGB(TransColor);
+  pixColor.rgbtBlue := GetBValue(c);
+  pixColor.rgbtGreen := GetGValue(c);
+  pixColor.rgbtRed := GetRValue(c);
+  bps := ((bm.Width * 32 + 31) and not 31) div 8;
+  row := bm.Scanline[0];
+  for y := 1 to bm.Height do
+  begin
+    pix := PRGBQuad(row);
+    for x := 1 to bm.Width do
+    begin
+      if pix.rgbReserved = 0 then
+        PRGBTriple(pix)^ := pixColor
+      else
+        pix.rgbReserved := 0;
+      // clear alpha channel, or draw won't draw it right;
+      inc(pix);
+    end;
+    Dec(row, bps);
+  end;
+end;
+
+procedure InitTransparency(const Source: TBitmap; var TransColor: TColor);
+begin
+  TransColor := TransColorToAlpha(Source);
+end;
+
+procedure TransferTransparency(const Target: TBitmap; TransColor: TColor);
+begin
+  AlphaToTransparentColor(Target, TransColor);
+  Target.Canvas.Lock;
+  Target.TransparentMode := TTransParentMode.tmFixed;
+  Target.TransparentColor := TransColor;
+  Target.Canvas.Unlock;
+end;
+
 procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode;
-  aThreadPool: PResamplingThreadPool = nil);
+  ThreadPool: PResamplingThreadPool = nil);
 var
   RTS: TResamplingThreadSetup;
   Index: integer;
-  TM: TResamplingThreadPool;
+  TM: PResamplingThreadPool;
+  TransColor: TColor;
+  DoSetAlphaFormat: boolean;
 begin
   if Radius = 0 then
     Radius := DefaultRadius[Filter];
-  if aThreadPool = nil then
-    TM := _DefaultThreadPool
+  if ThreadPool = nil then
+  // just initialize _DefaultThreadPool without raising an exception
+  begin
+    TM := @_DefaultThreadPool;
+    if not TM.Initialized then
+      TM.Initialize(_MaxThreadCount, tpHigher);
+  end
   else
-    TM := aThreadPool^;
+  begin
+    TM := ThreadPool;
+    if not TM.Initialized then
+      raise eParallelException.Create('Thread pool not initialized.');
+  end;
 
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
+  DoSetAlphaFormat := (Source.AlphaFormat = afDefined);
+  Source.AlphaFormat := afIgnored;
+  Target.AlphaFormat := afIgnored;
+  TransColor := 0;
+  if AlphaCombineMode = amTransparentColor then
+    InitTransparency(Source, TransColor);
   Target.SetSize(NewWidth, NewHeight);
 
   RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
-    Filter, SourceRect, AlphaCombineMode, @TM);
+    Filter, SourceRect, AlphaCombineMode, Length(TM.ResamplingThreads));
 
   for Index := 0 to RTS.ThreadCount - 1 do
     TM.ResamplingThreads[Index].RunAnonProc(GetResamplingTask(RTS, Index,
       AlphaCombineMode));
   for Index := 0 to RTS.ThreadCount - 1 do
     TM.ResamplingThreads[Index].Done.Waitfor(INFINITE);
+
+  if AlphaCombineMode = amTransparentColor then
+    TransferTransparency(Target, TransColor)
+  else if DoSetAlphaFormat then
+  begin
+    Source.AlphaFormat := afDefined;
+    Target.AlphaFormat := afDefined;
+  end;
 end;
+
+var
+  ResamplingTasks: array of iTask;
 
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
@@ -991,22 +902,40 @@ procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
 var
   RTS: TResamplingThreadSetup;
   Index: integer;
-  tasks: array of iTask;
+  TransColor: TColor;
+  DoSetAlphaFormat: boolean;
+  MaxTasks: integer;
 begin
   if Radius = 0 then
     Radius := DefaultRadius[Filter];
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
+  DoSetAlphaFormat := (Source.AlphaFormat = afDefined);
+  Source.AlphaFormat := afIgnored;
+  Target.AlphaFormat := afIgnored;
+  TransColor := 0;
+  if AlphaCombineMode = amTransparentColor then
+    InitTransparency(Source, TransColor);
   Target.SetSize(NewWidth, NewHeight);
 
-  RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
-    Filter, SourceRect, AlphaCombineMode);
+  MaxTasks := max(Min(64, TThread.ProcessorCount), 2);
+  if Length(ResamplingTasks) <> MaxTasks then
+    SetLength(ResamplingTasks, MaxTasks);
 
-  SetLength(tasks, RTS.ThreadCount);
+  RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
+    Filter, SourceRect, AlphaCombineMode, MaxTasks);
 
   for Index := 0 to RTS.ThreadCount - 1 do
-    tasks[Index] := TTask.run(GetResamplingTask(RTS, Index, AlphaCombineMode));
-  TTask.WaitForAll(tasks, INFINITE);
+    ResamplingTasks[Index] :=
+      TTask.run(GetResamplingTask(RTS, Index, AlphaCombineMode));
+  TTask.WaitForAll(ResamplingTasks, INFINITE);
+  if AlphaCombineMode = amTransparentColor then
+    TransferTransparency(Target, TransColor)
+  else if DoSetAlphaFormat then
+  begin
+    Source.AlphaFormat := afDefined;
+    Target.AlphaFormat := afDefined;
+  end;
 end;
 
 procedure ZoomResample(NewWidth, NewHeight: integer;
@@ -1023,12 +952,19 @@ var
   Cache: TBGRAIntArray; // cache  of integer valued bgra
   y: integer;
   runstart: PBGRAInt;
-  RP: TRowProcedure;
+  TransColor: TColor;
+  DoSetAlphaFormat: boolean;
 begin
   if Radius = 0 then
     Radius := DefaultRadius[Filter];
   Source.PixelFormat := pf32bit;
   Target.PixelFormat := pf32bit;
+  DoSetAlphaFormat := (Source.AlphaFormat = afDefined);
+  Source.AlphaFormat := afIgnored;
+  Target.AlphaFormat := afIgnored;
+  TransColor := 0;
+  if AlphaCombineMode = amTransparentColor then
+    InitTransparency(Source, TransColor);
   Target.SetSize(NewWidth, NewHeight);
 
   OldWidth := Source.Width;
@@ -1053,26 +989,32 @@ begin
   SetLength(Cache, SourceMax - SourceMin + 1);
   runstart := @Cache[0];
 
-  RP := RowProcedures[AlphaCombineMode];
-
   // Compute colors for each target row at y
   for y := 0 to NewHeight - 1 do
-    RP(y, Sbps, Tbps, SourceMin, SourceMax, 0, NewWidth - 1, rStart, rTStart,
-      runstart, ContribsX, ContribsY);
+
+    ProcessRow(y, Sbps, Tbps, SourceMin, SourceMax, 0, NewWidth - 1,
+      rStart, rTStart, runstart, ContribsX, ContribsY, AlphaCombineMode);
+  if AlphaCombineMode = amTransparentColor then
+    TransferTransparency(Target, TransColor)
+  else if DoSetAlphaFormat then
+  begin
+    Source.AlphaFormat := afDefined;
+    Target.AlphaFormat := afDefined;
+  end;
 end;
 
 procedure Resample(NewWidth, NewHeight: integer; const Source, Target: TBitmap;
   Filter: TFilter; Radius: single; Parallel: boolean;
-  AlphaCombineMode: TAlphaCombineMode;
-  aThreadPool: PResamplingThreadPool = nil);
+  AlphaCombineMode: TAlphaCombineMode; ThreadPool: PResamplingThreadPool = nil);
 var
   r: TFloatRect;
 begin
   r := FloatRect(0, 0, Source.Width, Source.Height);
+
   if Parallel then
 
     ZoomResampleParallelThreads(NewWidth, NewHeight, Source, Target, r, Filter,
-      Radius, AlphaCombineMode, aThreadPool)
+      Radius, AlphaCombineMode, ThreadPool)
 
   else
 
@@ -1125,25 +1067,12 @@ begin
   Wakeup.SetEvent;
 end;
 
-procedure InitDefaultResamplingThreads;
-begin
-  // creating more threads than processors present does not seem to
-  // speed up anything.
-  // We need at least 2 threads, though, for the logic of the routine
-  // dividing up the work
-  _DefaultThreadPool.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount),
-    tpHigher);
-end;
-
-procedure FreeDefaultResamplingThreads;
-begin
-  _DefaultThreadPool.Finalize;
-end;
-
 { TResamplingThreadPool }
 
 procedure TResamplingThreadPool.Finalize;
 begin
+  if not Initialized then
+    exit;
   for var i: integer := 0 to Length(ResamplingThreads) - 1 do
   begin
     ResamplingThreads[i].Terminate;
@@ -1158,6 +1087,8 @@ end;
 procedure TResamplingThreadPool.Initialize(aMaxThreadCount: integer;
   aPriority: TThreadpriority);
 begin
+  if Initialized then
+    Finalize;
   SetLength(ResamplingThreads, max(aMaxThreadCount, 2));
 
   for var i: integer := 0 to Length(ResamplingThreads) - 1 do
@@ -1169,16 +1100,28 @@ begin
   Initialized := true;
 end;
 
-initialization
+procedure InitDefaultResamplingThreads;
+begin
+  if _DefaultThreadPool.Initialized then
+    exit;
+  // creating more threads than processors present does not seem to
+  // speed up anything.
+  _DefaultThreadPool.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount),
+    tpHigher);
+end;
 
-// The threads stay around all the time waiting to be woken up.
-// This looks terrible, but hardly consumes any additional CPU-time
-// at all. Watch task manager.
-InitDefaultResamplingThreads;
+procedure FinalizeDefaultResamplingThreads;
+begin
+  if not _DefaultThreadPool.Initialized then
+    exit;
+  _DefaultThreadPool.Finalize;
+end;
+
+initialization
 
 finalization
 
-FreeDefaultResamplingThreads;
+FinalizeDefaultResamplingThreads;
 
 {$IFDEF O_MINUS}
 {$O-}

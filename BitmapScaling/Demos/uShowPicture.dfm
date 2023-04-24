@@ -4,7 +4,7 @@ object ShowPicture: TShowPicture
   Caption = 'Shows Picture'
   ClientHeight = 408
   ClientWidth = 645
-  Color = clBlack
+  Color = 3417354
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11

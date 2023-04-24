@@ -1,9 +1,31 @@
 BitmapScaling:
+2023-4-24
+  Threads will no longer be automatically created in Initialization. You can call 
+InitDefaultResamplingThreads to initialize them before you need them, or
+they will be initialized in the first call of a parallel procedure, which
+causes a delay. FinalizeDefaultResamplingThreads will free them. If you forget,
+uScale frees them in Finalization.
+  Source bitmaps with alphaformat=afDefined are now handled correctly, and the
+target will have the same alphaformat. The resampler works best though with
+alphaformat=afIgnored. You should define the alphaformat only before display
+to avoid imprecisions.
+  The unit uTools has routines to transfer a TPngImage or a TWICImage to TBitmap
+without setting alphaformat=afDefined, which is what TBitmap.Assign alway does in
+VCL.Graphics (and which is a waste of time for .jpg). A TWICImage is very convenient 
+for fast decoding of .jpg, .png or .tif. Alas TWICImage.Create is not threadsafe, so it 
+needs to be created in the main thread.
+  There is a new TAlphaCombineMode amTransparentColor which preserves the TransparentColor and
+the regions of transparency upon resampling.
+  The ThreadsInThreads demo now makes thumbnails in 2 concurrent threads, that should be a good
+crashtest for thread-safety.
+  Cleaned up the code in uScale, moving everything into implementation that is not needed in interface,
+and added more comments. Also moved 4 almost identical routines into one, sacrificing a bit of performance.
+
 2023-4-19
-The routine using parallel threads can now be used in concurrent threads, 
+  The routine using parallel threads can now be used in concurrent threads, 
 by assigning each calling thread its own resampling thread pool.
-A simple thumbnail explorer has been added as a demo.
-Hopefully fixed possible hang of the threads-in-threads demo
+  A simple thumbnail explorer has been added as a demo.
+  Hopefully fixed possible hang of the threads-in-threads demo
 
 2023-4-15
 Added Doc folder with .pdf explaining algorithm.
