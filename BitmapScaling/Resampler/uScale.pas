@@ -856,7 +856,7 @@ begin
   begin
     TM := @_DefaultThreadPool;
     if not TM.Initialized then
-      TM.Initialize(_MaxThreadCount, tpHigher);
+      TM.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount), tpHigher);
   end
   else
   begin
