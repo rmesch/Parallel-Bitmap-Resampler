@@ -1,4 +1,8 @@
 BitmapScaling:
+2023-4-25
+  Speedup for AlphaCombineMode = amPremultiply. It's now almost as fast as before I 
+moved the 4 ProcessRow-procedures into one.
+
 2023-4-24
   Automatic initialization of the default threadpool would always create 64 threads. Fixed.
 
