@@ -122,11 +122,15 @@ begin
   BitmapInfo.bmiHeader.biPlanes := 1;
   BitmapInfo.bmiHeader.biBitCount := 32;
 
+  bmp.SetSize(0,0); //erase pixels
   bmp.PixelFormat := pf32bit;
+
+  //if the alphaformat was afDefined before, this is a good spot
+  //for VCL.Graphics to do un-multiplication
+  bmp.AlphaFormat:=afIgnored;
+
   bmp.SetSize(w, h);
   SetDIBits(0, bmp.Handle, 0, h, @Buffer[0], BitmapInfo, DIB_RGB_COLORS);
-  bmp.AlphaFormat := afIgnored;
-
 end;
 
 procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;

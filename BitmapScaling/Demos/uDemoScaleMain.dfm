@@ -88,7 +88,6 @@ object DemoMain: TDemoMain
           'Transparency by TransparentColor')
         TabOrder = 1
         OnClick = AlphaChannelClick
-        ExplicitTop = -2
       end
       object GroupBox4: TGroupBox
         Left = 153
@@ -98,6 +97,7 @@ object DemoMain: TDemoMain
         Align = alClient
         Caption = 'Image from File'
         TabOrder = 2
+        ExplicitLeft = 147
         object Load: TButton
           Left = 6
           Top = 36

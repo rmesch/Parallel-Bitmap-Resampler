@@ -87,10 +87,10 @@ type
   // passed to the ZoomResampleParallelThreads procedure to indicate that this thread
   // pool should be used. This way the procedure can be used in concurrent threads.
   TResamplingThreadPool = record
-    private
+  private
     ResamplingThreads: array of TResamplingThread;
     Initialized: boolean;
-    public
+  public
     /// <summary> Creates the threads. Call before you use it in parallel procedures. If already initialized, it will finalize first, don't call it unnecessarily. </summary>
     procedure Initialize(aMaxThreadCount: integer; aPriority: TThreadpriority);
     /// <summary> Frees the threads. Call when your code exits the part where you use parallel resampling to free up memory and CPU-time. If you don't finalize a custom threadpool, you will have a memory leak. </summary>
@@ -99,7 +99,7 @@ type
 
   PResamplingThreadPool = ^TResamplingThreadPool;
 
-/// <summary> Initializes the default resampling thread pool. If already initialized, it does nothing. If not called, the default thread pool is initialized at the first use of a parallel procedure, causing a delay. </summary>
+  /// <summary> Initializes the default resampling thread pool. If already initialized, it does nothing. If not called, the default pool is initialized at the first use of a parallel procedure, causing a delay. </summary>
 procedure InitDefaultResamplingThreads;
 
 /// <summary> Frees the default resampling threads. If they are initialized and not finalized the Finalization of uScale will do it. </summary>
@@ -201,21 +201,12 @@ type
 
   TContribArray = array of TContributor;
 
+  TPrecision = (prLow, prHigh);
+
 const
   // constants used to divide the work for threading
   _ChunkHeight: integer = 8;
   _MaxThreadCount: integer = 64;
-
-type
-  TPrecision = (prLow, prHigh);
-
-const
-  PrecisionFacts: array [TPrecision] of integer = ($100, $800);
-  PreMultPrecision = 1 shl 2;
-
-  PointCount = 12; // 6 would be Simpson's rule, but I like emphasis on midpoint
-  PointCountMinus2 = PointCount - 2;
-  PointCountInv = 1 / PointCount;
 
 function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
 begin
@@ -325,6 +316,13 @@ end;
 const
   FilterFunctions: array [TFilter] of TFilterFunction = (Box, Linear, Bicubic,
     Mine, Lanczos, BSpline);
+
+  PrecisionFacts: array [TPrecision] of integer = ($100, $800);
+  PreMultPrecision = 1 shl 2;
+
+  PointCount = 12; // 6 would be Simpson's rule, but I like emphasis on midpoint
+  PointCountMinus2 = PointCount - 2;
+  PointCountInv = 1 / PointCount;
 
 procedure MakeContributors(r: single; SourceSize, TargetSize: integer;
   SourceStart, SourceFloatwidth: double; Filter: TFilter; precision: TPrecision;
@@ -440,6 +438,7 @@ begin
   end; { for x }
 end;
 
+
 procedure Combine(const ps: PRGBQuad; const Weight: integer;
   const Cache: PBGRAInt; const acm: TAlphaCombineMode); inline;
 var
@@ -458,9 +457,9 @@ begin
     if ps.rgbReserved > 0 then
     begin
       alpha := Weight * ps.rgbReserved;
-      Cache.b := MulDiv(ps.rgbBlue, alpha, PreMultPrecision);
-      Cache.g := MulDiv(ps.rgbGreen, alpha, PreMultPrecision);
-      Cache.r := MulDiv(ps.rgbRed, alpha, PreMultPrecision);
+      Cache.b := ps.rgbBlue * alpha div PreMultPrecision;
+      Cache.g := ps.rgbGreen * alpha div PreMultPrecision;
+      Cache.r := ps.rgbRed * alpha div PreMultPrecision;
       Cache.a := alpha;
     end
     else
@@ -484,9 +483,9 @@ begin
   else if ps.rgbReserved > 0 then
   begin
     alpha := Weight * ps.rgbReserved;
-    inc(Cache.b, MulDiv(ps.rgbBlue, alpha, PreMultPrecision));
-    inc(Cache.g, MulDiv(ps.rgbGreen, alpha, PreMultPrecision));
-    inc(Cache.r, MulDiv(ps.rgbRed, alpha, PreMultPrecision));
+    inc(Cache.b, ps.rgbBlue*alpha div PreMultPrecision);
+    inc(Cache.g, ps.rgbGreen*alpha div PreMultPrecision);
+    inc(Cache.r, ps.rgbRed*alpha div PreMultPrecision);
     inc(Cache.a, alpha);
   end;
 end;
@@ -564,8 +563,8 @@ begin
     pT^ := Default (TRGBQuad);
 end;
 
-procedure ProcessRow(y, Sbps, Tbps, xminSource, xmaxSource, xmin,
-  xmax: integer; rStart, rTStart: PByte; runstart: PBGRAInt;
+procedure ProcessRow(y, Sbps, Tbps, xminSource, xmaxSource, xmin, xmax: integer;
+  rStart, rTStart: PByte; runstart: PBGRAInt;
   const ContribsX, ContribsY: TContribArray;
   AlphaCombineMode: TAlphaCombineMode); inline;
 var
@@ -992,8 +991,8 @@ begin
   // Compute colors for each target row at y
   for y := 0 to NewHeight - 1 do
 
-    ProcessRow(y, Sbps, Tbps, SourceMin, SourceMax, 0, NewWidth - 1,
-      rStart, rTStart, runstart, ContribsX, ContribsY, AlphaCombineMode);
+    ProcessRow(y, Sbps, Tbps, SourceMin, SourceMax, 0, NewWidth - 1, rStart,
+      rTStart, runstart, ContribsX, ContribsY, AlphaCombineMode);
   if AlphaCombineMode = amTransparentColor then
     TransferTransparency(Target, TransColor)
   else if DoSetAlphaFormat then
@@ -1116,6 +1115,8 @@ begin
     exit;
   _DefaultThreadPool.Finalize;
 end;
+
+
 
 initialization
 

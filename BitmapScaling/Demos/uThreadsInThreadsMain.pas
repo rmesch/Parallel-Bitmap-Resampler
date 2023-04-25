@@ -59,7 +59,6 @@ type
     procedure Execute; override;
   public
     DoAbort, Working: boolean;
-    MessageMemo: TMemo;
     fThumblist: PThumblist;
     fThreadpool: PResamplingThreadpool;
     Transparency: boolean;
@@ -97,10 +96,10 @@ type
     CurDirectory: string;
     TimeLoad, TimeResample: integer;
 
-    // thread pool used in the thread creating the thumb images
+    // thread pools used in the threads creating the thumb images
     ThreadpoolLower, ThreadpoolUpper: TResamplingThreadPool;
 
-    // thread generating the bitmaps for the thumbs
+    // threads generating the bitmaps for the thumbs
     MakeThumbsThreadLower, MakeThumbsThreadUpper: TMakeThumbsThread;
 
     // event handler for click on any thumb, shows the picture in a larger window
@@ -125,11 +124,12 @@ implementation
 uses System.IOUtils, Winapi.ShlWApi, System.Math, System.Diagnostics,
   uShowPicture, uTools, System.Types;
 
-// ThreadWIC is the TWICImage we use to load and decode the image-files for the MakeThumbsThread.
+// ThreadWICLower, ThreadWICUpper are the TWICImages we use to load and
+// decode the image-files for the MakeThumbsThread.
 // This is much faster than using TPicture, particularly for jpeg's.
 // Because TWICImage.Create is not threadsafe, we need to create
-// it in the main thread. For simplicity this is done in
-// initialization. One just has to be careful not to use it in
+// them in the main thread. For simplicity this is done in
+// initialization. One just has to be careful not to use them in
 // more than one thread.
 var
   ThreadWICLower, ThreadWICUpper: TWICImage;
@@ -199,8 +199,8 @@ begin
     MakeThumbsThreadUpper.DoAbort := true;
   // get all synchronize things out of the queue.
   Application.ProcessMessages;
-  // Make sure the work of the thread is done,
-  // since we are going to free the stuff it's working with.
+  // Make sure the work of the threads is done,
+  // since we are going to free the stuff they're working with.
   MakeThumbsThreadLower.Ready.WaitFor(Infinite);
   MakeThumbsThreadLower.Ready.ResetEvent;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
@@ -241,13 +241,7 @@ var
 begin
   with TMakeThumbsThread(Sender) do
   begin
-    if TimeLoad = 0 then
-      TimeLoad := ElapsedLoad
-    else
       TimeLoad := TimeLoad + ElapsedLoad;
-    if TimeResample = 0 then
-      TimeResample := ElapsedResample
-    else
       TimeResample := TimeResample + ElapsedResample;
   end;
   DoneAll := not(MakeThumbsThreadLower.Working or
@@ -560,6 +554,7 @@ end;
 constructor TMakeThumbsThread.Create;
 begin
   inherited Create(false);
+  FreeOnTerminate := false;
   Wakeup := TEvent.Create;
   Ready := TEvent.Create;
 end;
@@ -694,7 +689,6 @@ begin
         UpdateMin := UpdateMax + 1;
       end;
   end; // for i
-
   if not DoAbort then
   begin
     ElapsedLoad := StopLoadFromFile.ElapsedMilliseconds;
