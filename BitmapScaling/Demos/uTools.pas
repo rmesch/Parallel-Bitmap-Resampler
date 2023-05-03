@@ -85,6 +85,9 @@ type
 
 procedure MakeAlphaChannel(const bm: TBitmap);
 
+procedure ScaleStretchHalftone(NewWidth, NewHeight: integer;
+const Source, Target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
+
 implementation
 
 uses System.Math, System.Classes;
@@ -122,15 +125,34 @@ begin
   BitmapInfo.bmiHeader.biPlanes := 1;
   BitmapInfo.bmiHeader.biBitCount := 32;
 
-  bmp.SetSize(0,0); //erase pixels
+  bmp.SetSize(0, 0); // erase pixels
   bmp.PixelFormat := pf32bit;
 
-  //if the alphaformat was afDefined before, this is a good spot
-  //for VCL.Graphics to do un-multiplication
-  bmp.AlphaFormat:=afIgnored;
+  // if the alphaformat was afDefined before, this is a good spot
+  // for VCL.Graphics to do un-multiplication
+  bmp.AlphaFormat := afIgnored;
 
   bmp.SetSize(w, h);
   SetDIBits(0, bmp.Handle, 0, h, @Buffer[0], BitmapInfo, DIB_RGB_COLORS);
+end;
+
+procedure ScaleStretchHalftone(NewWidth, NewHeight: integer;
+const Source, Target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
+var p: TPoint;
+begin
+  Source.PixelFormat:=pf32bit;
+  if AlphaCombineMode = amPreMultiply then
+    Source.AlphaFormat := afDefined
+  else
+    Source.AlphaFormat := afIgnored;
+  target.PixelFormat := pf32bit;
+  target.SetSize(NewWidth, NewHeight);
+  GetBrushOrgEx(Target.Canvas.Handle,p);
+  SetStretchBltMode(target.Canvas.handle,HALFTONE);
+  SetBrushOrgEx(Target.Canvas.Handle,p.x,p.y,@p);
+  StretchBlt(Target.Canvas.Handle,
+    0,0,NewWidth,NewHeight,Source.Canvas.Handle,0,0,Source.Width,Source.Height,SRCCopy);
+  Target.AlphaFormat:=afIgnored;
 end;
 
 procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
@@ -167,7 +189,9 @@ var
   PixPng: PRGBTriple;
   PixBmp: PRGBQuad;
 begin
+  bmp.SetSize(0, 0);
   bmp.PixelFormat := pf32bit;
+  bmp.AlphaFormat := afIgnored;
   bmp.SetSize(png.Width, png.Height);
   for y := 0 to bmp.Height - 1 do
   begin
@@ -178,9 +202,7 @@ begin
     PixBmp := PRGBQuad(Rowbmp);
     for x := 0 to bmp.Width - 1 do
     begin
-      PixBmp.rgbBlue := PixPng.rgbtBlue;
-      PixBmp.rgbGreen := PixPng.rgbtGreen;
-      PixBmp.rgbRed := PixPng.rgbtRed;
+      PRGBTriple(PixBmp)^:=PixPng^;
       PixBmp.rgbReserved := RowAlpha[x];
       inc(PixBmp);
       inc(PixPng);
@@ -348,7 +370,7 @@ var
   i: byte;
 
 begin
-  Assert(bm.PixelFormat=pf32bit,'Bitmap must be 32bit');
+  Assert(bm.PixelFormat = pf32bit, 'Bitmap must be 32bit');
   w := bm.Width;
   h := bm.Height;
   bAlpha.PixelFormat := pf8Bit;

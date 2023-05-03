@@ -1,4 +1,8 @@
 BitmapScaling:
+2023-5-3
+  Fixed a possible runtime error for the routine using tasks.
+  The tasks-routine is now threadsafe, see ThreadsInThreads for a test.
+  The thumbnail-display in ThreadsInThreads should now be DPI- and Style-aware.
 2023-4-25
   Speedup for AlphaCombineMode = amPremultiply. It's now almost as fast as before I 
 moved the 4 ProcessRow-procedures into one.

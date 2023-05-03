@@ -1,14 +1,17 @@
 unit uThreadsInThreadsMain;
 
-//Thumbnail viewer which makes the thumb-bitmaps in 2 threads,
-//which also use threaded resampling.
-//Each thread uses its own custom TResamplingThreadpool.
-//Click on a thumb shows the picture in a larger window,
-//with resizing also done by parallel threads using the
-//default thread pool of uScale.
-//Should be a crashtest for thread-safety.
-//Important routines: TMakeThumbsThread.DoMakeThumbs,
-//TThreadsInThreadsMain.MakeNewThumbs, TThreadsInThreadsMain.ThumbClick.
+// Thumbnail viewer which makes the thumb-bitmaps in 2 threads,
+// which also use threaded resampling.
+// Each thread uses its own custom TResamplingThreadpool.
+// Click on a thumb shows the picture in a larger window,
+// with resizing also done by parallel threads using the
+// default thread pool of uScale.
+// Should be a crashtest for thread-safety.
+//
+// Important routines: TMakeThumbsThread.DoMakeThumbs,
+// TThreadsInThreadsMain.MakeNewThumbs, TThreadsInThreadsMain.ThumbClick.
+//
+// The Thumbdisplay adjusts to DPI (hopefully), and you can try this with styles enabled.
 
 interface
 
@@ -17,9 +20,20 @@ uses
   System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Grids,
   Vcl.StdCtrls, Vcl.FileCtrl, Vcl.ExtCtrls,
-  System.Generics.Collections, uScale, System.SyncObjs;
+  System.Generics.Collections, uScale, System.SyncObjs, System.Diagnostics;
+
+const
+  MsgUpdate = WM_user + 1;
 
 type
+
+  // Interceptor class, which updates the content of a scrollbox
+  // while scrolled without ugly side-effects when using styles.
+  TScrollbox = class(Vcl.Forms.TScrollbox)
+  protected
+    procedure WMVScroll(var Msg: TWMVScroll); message WM_VSCROLL;
+    procedure WMHScroll(var Msg: TWMHScroll); message WM_HSCROLL;
+  end;
 
   TThumbControl = class;
 
@@ -63,9 +77,11 @@ type
     fThreadpool: PResamplingThreadpool;
     Transparency: boolean;
     LowerHalf: boolean;
+    ThreadingIndex: integer;
     Ready, Wakeup: TEvent;
     ElapsedLoad, ElapsedResample: int64;
     OnDone: TNotifyEvent;
+    MessageHandle: HWnd;
     constructor Create;
     destructor Destroy; override;
   end;
@@ -82,6 +98,7 @@ type
     ThumbView: TScrollbox;
     Label2: TLabel;
     TransparencyGroup: TRadioGroup;
+    Threading: TRadioGroup;
     procedure FormCreate(Sender: TObject);
     procedure ThumbViewResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -90,11 +107,15 @@ type
       WheelDelta: integer; MousePos: TPoint; var Handled: boolean);
     procedure TransparentClick(Sender: TObject);
     procedure FormActivate(Sender: TObject);
+    procedure FormAfterMonitorDpiChanged(Sender: TObject;
+      OldDPI, NewDPI: integer);
+    procedure ThreadingClick(Sender: TObject);
   private
     Thumblist: TThumblist;
     ThumbsChanging: boolean;
     CurDirectory: string;
     TimeLoad, TimeResample: integer;
+    MakeThumbsTime: TStopWatch;
 
     // thread pools used in the threads creating the thumb images
     ThreadpoolLower, ThreadpoolUpper: TResamplingThreadPool;
@@ -109,6 +130,8 @@ type
     procedure MakeNewThumbs;
 
     procedure ThreadDone(Sender: TObject);
+
+    procedure DoUpdate(var Msg: TMessage); message MsgUpdate;
     { Private-Deklarationen }
   public
     { Public-Deklarationen }
@@ -121,15 +144,15 @@ implementation
 
 {$R *.dfm}
 
-uses System.IOUtils, Winapi.ShlWApi, System.Math, System.Diagnostics,
-  uShowPicture, uTools, System.Types;
+uses System.IOUtils, Winapi.ShlWApi, System.Math,
+  uShowPicture, uTools, System.Types, Vcl.Themes, Vcl.Styles;
 
 // ThreadWICLower, ThreadWICUpper are the TWICImages we use to load and
 // decode the image-files for the MakeThumbsThread.
 // This is much faster than using TPicture, particularly for jpeg's.
 // Because TWICImage.Create is not threadsafe, we need to create
 // them in the main thread. For simplicity this is done in
-// initialization. One just has to be careful not to use them in
+// initialization. One just has to be careful not to use each in
 // more than one thread.
 var
   ThreadWICLower, ThreadWICUpper: TWICImage;
@@ -148,28 +171,46 @@ begin
   ThumbsChanging := false;
 end;
 
+procedure TThreadsInThreadsMain.DoUpdate(var Msg: TMessage);
+var
+  i: integer;
+begin
+  Msg.Result := 0;
+  for i := Msg.WParam to Msg.LParam do
+    Thumblist.DataList[i].ThumbControl.Invalidate;
+end;
+
 procedure TThreadsInThreadsMain.FormActivate(Sender: TObject);
 begin
   SetBounds(0, 0, screen.width div 2, screen.Height);
-  ShowPicture.Top := 0;
-  ShowPicture.Left := width;
+  ShowPicture.SetBounds(width, 0, screen.width div 2, screen.Height div 2);
+end;
+
+procedure TThreadsInThreadsMain.FormAfterMonitorDpiChanged(Sender: TObject;
+  OldDPI, NewDPI: integer);
+begin
+  MakeNewThumbs;
 end;
 
 procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
 begin
-  ThreadpoolLower.Initialize(min(16, TThread.ProcessorCount div 2), tpHigher);
-  ThreadpoolUpper.Initialize(min(16, TThread.ProcessorCount div 2), tpHigher);
-  //We don't initialize the default threadpool.
-  //It will be initialized on demand when showing the first picture.
-  //InitDefaultResamplingThreads;
+  // leave 2 processors for the MakeThumbsThreads (seems better)
+  ThreadpoolLower.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
+    tpHigher);
+  ThreadpoolUpper.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
+    tpHigher);
+  // We don't initialize the default threadpool.
+  // It will be initialized on demand when showing the first picture.
+  // InitDefaultResamplingThreads;
   MakeThumbsThreadLower := TMakeThumbsThread.Create;
-  MakeThumbsThreadLower.Priority := tpNormal;
+  MakeThumbsThreadLower.Priority := tpHighest;
   MakeThumbsThreadLower.LowerHalf := true;
   MakeThumbsThreadLower.Ready.WaitFor(Infinite);
   MakeThumbsThreadUpper := TMakeThumbsThread.Create;
-  MakeThumbsThreadUpper.Priority := tpNormal;
+  MakeThumbsThreadUpper.Priority := tpHighest;
   MakeThumbsThreadUpper.LowerHalf := false;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
+  MakeThumbsTime := TStopWatch.Create;
   DLB.Directory := TPath.GetPicturesPath;
 end;
 
@@ -186,9 +227,9 @@ begin
   Thumblist.ClearThumbs;
   ThreadpoolLower.Finalize;
   ThreadpoolUpper.Finalize;
-  //We don't finalize the default threadpool.
-  //It will be finalized in Finalization of uScale.
-  //FinalizeDefaultResamplingThreads
+  // We don't finalize the default threadpool.
+  // It will be finalized in Finalization of uScale.
+  // FinalizeDefaultResamplingThreads
 end;
 
 procedure TThreadsInThreadsMain.MakeNewThumbs;
@@ -221,16 +262,22 @@ begin
   // make the thumb-bitmaps 2 threads
   TimeLoad := 0;
   TimeResample := 0;
+  MakeThumbsTime.Reset;
   MakeThumbsThreadLower.fThumblist := @Thumblist;
   MakeThumbsThreadLower.fThreadpool := @ThreadpoolLower;
   MakeThumbsThreadLower.OnDone := ThreadDone;
   MakeThumbsThreadLower.Transparency := (TransparencyGroup.ItemIndex > 0);
+  MakeThumbsThreadLower.ThreadingIndex := Threading.ItemIndex;
+  MakeThumbsThreadLower.MessageHandle := self.Handle;
 
   MakeThumbsThreadUpper.fThumblist := @Thumblist;
   MakeThumbsThreadUpper.fThreadpool := @ThreadpoolUpper;
   MakeThumbsThreadUpper.OnDone := ThreadDone;
   MakeThumbsThreadUpper.Transparency := (TransparencyGroup.ItemIndex > 0);
+  MakeThumbsThreadUpper.ThreadingIndex := Threading.ItemIndex;
+  MakeThumbsThreadUpper.MessageHandle := self.Handle;
 
+  MakeThumbsTime.Start;
   MakeThumbsThreadLower.Wakeup.SetEvent;
   MakeThumbsThreadUpper.Wakeup.SetEvent;
 end;
@@ -238,22 +285,42 @@ end;
 procedure TThreadsInThreadsMain.ThreadDone(Sender: TObject);
 var
   DoneAll: boolean;
+  PercLoad, PercResample, Total: integer;
 begin
   with TMakeThumbsThread(Sender) do
   begin
-      TimeLoad := TimeLoad + ElapsedLoad;
-      TimeResample := TimeResample + ElapsedResample;
+    TimeLoad := TimeLoad + ElapsedLoad;
+    TimeResample := TimeResample + ElapsedResample;
   end;
   DoneAll := not(MakeThumbsThreadLower.Working or
     MakeThumbsThreadUpper.Working);
   if DoneAll then
   begin
+    MakeThumbsTime.Stop;
+    Total := TimeLoad + TimeResample;
+    if Total > 0 then
+    begin
+      PercLoad := round(100 * TimeLoad / Total);
+      PercResample := round(100 * TimeResample / Total);
+    end
+    else
+    begin
+      PercLoad := 0;
+      PercResample := 0;
+    end;
     Memo1.Lines.Add(' ');
     Memo1.Lines.Add('Number of pictures: ' + Thumblist.ThumbCount.ToString);
-    Memo1.Lines.Add('Load and decode: ' + TimeLoad.ToString+'ms');
-    Memo1.Lines.Add('Resample: ' + TimeResample.ToString+'ms');
+    Memo1.Lines.Add('Time until done: ' + MakeThumbsTime.ElapsedMilliseconds.
+      ToString + ' ms');
+    Memo1.Lines.Add('Load and decode: ' + PercLoad.ToString + ' %');
+    Memo1.Lines.Add('Resample: ' + PercResample.ToString + ' %');
   end;
 
+end;
+
+procedure TThreadsInThreadsMain.ThreadingClick(Sender: TObject);
+begin
+  MakeNewThumbs;
 end;
 
 procedure TThreadsInThreadsMain.ThumbClick(Sender: TObject);
@@ -264,9 +331,14 @@ var
   Transparency: boolean;
   WIC: TWICImage;
   DoSetAlphaFormat: boolean;
+  ClearColor: TColor;
 begin
   if not ShowPicture.Visible then
-  ShowPicture.Caption:='Wait for the default thread pool to be initialized';
+    ShowPicture.Caption := 'Wait for the default thread pool to be initialized';
+  if TStylemanager.ActiveStyle.Name <> 'Windows' then
+    ClearColor := StyleServices.GetStyleColor(scWindow)
+  else
+    ClearColor := ShowPicture.Color;
   ShowPicture.Show;
   TH := TThumbControl(Sender);
   cw := ShowPicture.ClientWidth;
@@ -339,7 +411,7 @@ begin
         if DoSetAlphaFormat then
           tm.AlphaFormat := afDefined;
 
-        ShowPicture.Canvas.Brush.Color := ShowPicture.Color;
+        ShowPicture.Canvas.Brush.Color := ClearColor;
         ShowPicture.Canvas.FillRect(ShowPicture.ClientRect);
 
         // using draw to display with alpha-channel-opacity or transparency
@@ -351,7 +423,7 @@ begin
   finally
     bm.Free;
   end;
-  ShowPicture.Caption:='Shows Picture';
+  ShowPicture.Caption := 'Shows Picture';
 end;
 
 procedure TThreadsInThreadsMain.ThumbViewMouseWheel(Sender: TObject;
@@ -469,10 +541,15 @@ var
   Name, Size: string;
   r: TRect;
   w, h, l, t: integer;
+  DrawColor: TColor;
 begin
   if (Index > ThumbCount - 1) or (Index < 0) or (not assigned(ThumbParent)) then
     exit;
-  aCanvas.Pen.Color := clSilver;
+  if TStylemanager.ActiveStyle.Name <> 'Windows' then
+    DrawColor := StyleServices.GetStyleFontColor(sfWindowTextNormal)
+  else
+    DrawColor := clSilver;
+  aCanvas.Pen.Color := DrawColor;
   aCanvas.Brush.Style := bsClear;
   aCanvas.Rectangle(0, 0, ThumbSize, ThumbSize);
   aCanvas.Rectangle(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize);
@@ -481,7 +558,7 @@ begin
     IntToStr(DataList[Index].OrgSize.y);
   Name := Name + sLineBreak + Size;
   aCanvas.Font.Assign(ThumbParent.Font);
-  aCanvas.Font.Color := clSilver;
+  aCanvas.Font.Color := DrawColor;
   r := Rect(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize);
   DrawText(aCanvas.Handle, PChar(Name), Length(Name), r,
     dt_Center or dt_VCenter or dt_WordBreak);
@@ -572,9 +649,11 @@ var
   bm, tm: TBitmap;
   w, h, Count, imin, imax: integer;
   UpdateMin, UpdateMax: integer;
-  StopLoadFromFile, StopResample: TStopwatch;
+  StopLoadFromFile, StopResample: TStopWatch;
   WrongFormat, DoSetAlphaFormat: boolean;
   ThreadWIC: TWICImage;
+  acm: TAlphaCombineMode;
+  r: TFloatRect;
 begin
   Count := fThumblist^.ThumbCount;
   if Count = 0 then
@@ -592,8 +671,8 @@ begin
     ThreadWIC := ThreadWICUpper;
   end;
   UpdateMin := imin;
-  StopLoadFromFile := TStopwatch.Create;
-  StopResample := TStopwatch.Create;
+  StopLoadFromFile := TStopWatch.Create;
+  StopResample := TStopWatch.Create;
   for i := imin to imax do
   begin
     if DoAbort then
@@ -649,20 +728,29 @@ begin
         begin
           tm := TBitmap.Create;
 
-          // resample using a custom threadpool and setting the highest quality
+          // Resample setting the highest quality.
+          // If ThreadingIndex<>0, resample in parallel tasks or threads
+          // using a custom threadpool fThreadpool
           if Transparency then
-          begin
-            uScale.Resample(w, h, bm, tm, cfLanczos, 0, true,
-              amTransparentColor, fThreadpool);
-            tm.Transparent := true;
-          end
+            acm := amTransparentColor
           else if DoSetAlphaFormat then
-            uScale.Resample(w, h, bm, tm, cfLanczos, 0, true, amPreMultiply,
-              fThreadpool)
+            acm := amPreMultiply
           else
-            uScale.Resample(w, h, bm, tm, cfLanczos, 0, true, amIgnore,
-              fThreadpool);
+            acm := amIgnore;
 
+          r := FloatRect(0, 0, bm.width, bm.Height);
+          case ThreadingIndex of
+            0:
+              ZoomResample(w, h, bm, tm, r, cfLanczos, 0, acm);
+            1:
+              ZoomResampleParallelThreads(w, h, bm, tm, r, cfLanczos, 0, acm,
+                fThreadpool);
+            2:
+              ZoomResampleParallelTasks(w, h, bm, tm, r, cfLanczos, 0, acm);
+          end;
+
+          if Transparency then
+            tm.Transparent := true;
           if DoSetAlphaFormat then
             tm.AlphaFormat := afDefined;
 
@@ -677,15 +765,7 @@ begin
       if not DoAbort then
       begin
         UpdateMax := i;
-        TThread.Synchronize(TThread.Current,
-          procedure
-          var
-            j: integer;
-          begin
-            for j := UpdateMin to UpdateMax do
-              if not DoAbort then
-                fThumblist.DataList[j].ThumbControl.Invalidate;
-          end);
+        PostMessage(MessageHandle, MsgUpdate, UpdateMin, UpdateMax);
         UpdateMin := UpdateMax + 1;
       end;
   end; // for i
@@ -718,6 +798,20 @@ begin
       Working := false;
     end;
   end; // while not terminated
+end;
+
+{ TScrollbox }
+
+procedure TScrollbox.WMHScroll(var Msg: TWMHScroll);
+begin
+  inherited;
+  Update;
+end;
+
+procedure TScrollbox.WMVScroll(var Msg: TWMVScroll);
+begin
+  inherited;
+  Update;
 end;
 
 initialization

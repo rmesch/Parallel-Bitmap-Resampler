@@ -3,25 +3,20 @@ object ZoomPanMain: TZoomPanMain
   Top = 0
   Caption = 'ZoomPanMain'
   ClientHeight = 414
-  ClientWidth = 874
+  ClientWidth = 855
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'Segoe UI Semibold'
   Font.Style = []
-  OldCreateOrder = False
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
     Left = 359
     Top = 0
     Height = 414
-    ExplicitLeft = 264
-    ExplicitTop = -1
-    ExplicitHeight = 339
   end
   object Panel1: TPanel
     Left = 0
@@ -107,7 +102,7 @@ object ZoomPanMain: TZoomPanMain
   object Panel2: TPanel
     Left = 362
     Top = 0
-    Width = 512
+    Width = 493
     Height = 414
     Align = alClient
     ParentBackground = False
@@ -115,14 +110,14 @@ object ZoomPanMain: TZoomPanMain
     object Panel4: TPanel
       Left = 1
       Top = 1
-      Width = 510
+      Width = 491
       Height = 56
       Align = alTop
       TabOrder = 0
       object GroupBox3: TGroupBox
         Left = 1
         Top = 1
-        Width = 508
+        Width = 489
         Height = 54
         Align = alClient
         Caption = 'Animation'
@@ -214,7 +209,7 @@ object ZoomPanMain: TZoomPanMain
     object MoviePanel: TPanel
       Left = 1
       Top = 57
-      Width = 510
+      Width = 491
       Height = 330
       Align = alClient
       Color = clBlack
@@ -232,7 +227,7 @@ object ZoomPanMain: TZoomPanMain
     object Panel5: TPanel
       Left = 1
       Top = 387
-      Width = 510
+      Width = 491
       Height = 26
       Align = alBottom
       TabOrder = 2

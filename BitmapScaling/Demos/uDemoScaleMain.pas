@@ -1,7 +1,7 @@
 unit uDemoScaleMain;
-//Shows how to resample a source-bitmap to a target-bitmap using the
-//procedures in uScale with various settings.
-//Look at TDemoMainForm.DoScale to see how the procedures are used.
+// Shows how to resample a source-bitmap to a target-bitmap using the
+// procedures in uScale with various settings.
+// Look at TDemoMainForm.DoScale to see how the procedures are used.
 
 interface
 
@@ -62,6 +62,7 @@ type
     RadiusPercent: TSpinEdit;
     Radius: TLabel;
     Apply: TButton;
+    SPD: TSavePictureDialog;
     procedure FormCreate(Sender: TObject);
     procedure MakeTestBitmapClick(Sender: TObject);
     procedure ShowAlphaClick(Sender: TObject);
@@ -91,6 +92,7 @@ type
     procedure ApplyClick(Sender: TObject);
     procedure ScrollBox1MouseWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure Image2DblClick(Sender: TObject);
   private
     TheSource, TheOriginal, TheTarget, TheWIC: TBitmap;
     Aspect: double;
@@ -206,6 +208,12 @@ begin
   DisplaySource;
 end;
 
+procedure TDemoMain.Image2DblClick(Sender: TObject);
+begin
+  if SPD.Execute then
+    TheTarget.SaveToFile(SPD.Filename);
+end;
+
 procedure TDemoMain.Image2MouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
 var
@@ -250,7 +258,7 @@ begin
     exit;
   WIC := TWICImage.Create;
   try
-    WIC.LoadFromFile(OPD.FileName);
+    WIC.LoadFromFile(OPD.Filename);
     WICToBmp(WIC, TheOriginal);
   finally
     WIC.Free;
@@ -397,7 +405,7 @@ begin
   try
     bm.Assign(TheSource);
     nw := TheSource.Width;
-    //rescale optionally in more than one step
+    // rescale optionally in more than one step
     for i := 1 to Steps.Value do
     begin
       if i = Steps.Value then
@@ -418,7 +426,7 @@ begin
           0:
             ZoomResample(nw, nh, bm, help, FloatRect(0, 0, bm.Width, bm.Height),
               Filter, r, acm);
-          1: //the thread pool is not specified, will use default.
+          1: // the thread pool is not specified, will use default.
             ZoomResampleParallelThreads(nw, nh, bm, help,
               FloatRect(0, 0, bm.Width, bm.Height), Filter, r, acm);
           2:
@@ -466,6 +474,7 @@ begin
       help := TBitmap.Create;
       try
         StopWatch.Start;
+
         ScaleWICImagingBicubic(nw, nh, bm, help,
           TAlphaCombineMode(CombineModes.ItemIndex));
         StopWatch.Stop;

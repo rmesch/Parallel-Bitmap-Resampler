@@ -20,7 +20,7 @@ unit uScale;
   Supported Delphi-versions: 10.x and up, probably works with
   some earlier versions, but untested.
   The "beef" of the algorithm used is in the routines
-  MakeContributors and ProcessRow
+  MakeContributors and ProcessRow.
   *************************************************************** *)
 
 interface
@@ -320,7 +320,7 @@ const
   PrecisionFacts: array [TPrecision] of integer = ($100, $800);
   PreMultPrecision = 1 shl 2;
 
-  PointCount = 12; // 6 would be Simpson's rule, but I like emphasis on midpoint
+  PointCount = 18; // 6 would be Simpson's rule, but I like emphasis on midpoint
   PointCountMinus2 = PointCount - 2;
   PointCountInv = 1 / PointCount;
 
@@ -438,7 +438,6 @@ begin
   end; { for x }
 end;
 
-
 procedure Combine(const ps: PRGBQuad; const Weight: integer;
   const Cache: PBGRAInt; const acm: TAlphaCombineMode); inline;
 var
@@ -483,9 +482,9 @@ begin
   else if ps.rgbReserved > 0 then
   begin
     alpha := Weight * ps.rgbReserved;
-    inc(Cache.b, ps.rgbBlue*alpha div PreMultPrecision);
-    inc(Cache.g, ps.rgbGreen*alpha div PreMultPrecision);
-    inc(Cache.r, ps.rgbRed*alpha div PreMultPrecision);
+    inc(Cache.b, ps.rgbBlue * alpha div PreMultPrecision);
+    inc(Cache.g, ps.rgbGreen * alpha div PreMultPrecision);
+    inc(Cache.r, ps.rgbRed * alpha div PreMultPrecision);
     inc(Cache.a, alpha);
   end;
 end;
@@ -652,7 +651,7 @@ begin
     end;
 
     if AlphaCombineMode = amTransparentColor then
-      if pT.rgbReserved > 192 then
+      if pT.rgbReserved > 128 then
         pT.rgbReserved := 255
       else
         pT.rgbReserved := 0;
@@ -662,8 +661,8 @@ begin
 end;
 
 const
-  Precisions: array [TAlphaCombineMode] of TPrecision = (prHigh, prLow,
-    prHigh, prLow);
+  Precisions: array [TAlphaCombineMode] of TPrecision = (prHigh, prLow, prHigh,
+    prLow);
 
 type
 
@@ -892,8 +891,7 @@ begin
   end;
 end;
 
-var
-  ResamplingTasks: array of iTask;
+
 
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
@@ -904,6 +902,7 @@ var
   TransColor: TColor;
   DoSetAlphaFormat: boolean;
   MaxTasks: integer;
+  ResamplingTasks: array of iTask;
 begin
   if Radius = 0 then
     Radius := DefaultRadius[Filter];
@@ -918,16 +917,16 @@ begin
   Target.SetSize(NewWidth, NewHeight);
 
   MaxTasks := max(Min(64, TThread.ProcessorCount), 2);
-  if Length(ResamplingTasks) <> MaxTasks then
-    SetLength(ResamplingTasks, MaxTasks);
 
   RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source, Target, Radius,
     Filter, SourceRect, AlphaCombineMode, MaxTasks);
+  SetLength(ResamplingTasks,RTS.ThreadCount);
 
   for Index := 0 to RTS.ThreadCount - 1 do
     ResamplingTasks[Index] :=
       TTask.run(GetResamplingTask(RTS, Index, AlphaCombineMode));
   TTask.WaitForAll(ResamplingTasks, INFINITE);
+
   if AlphaCombineMode = amTransparentColor then
     TransferTransparency(Target, TransColor)
   else if DoSetAlphaFormat then
@@ -1088,6 +1087,7 @@ procedure TResamplingThreadPool.Initialize(aMaxThreadCount: integer;
 begin
   if Initialized then
     Finalize;
+  // We need at least 2 threads
   SetLength(ResamplingThreads, max(aMaxThreadCount, 2));
 
   for var i: integer := 0 to Length(ResamplingThreads) - 1 do
@@ -1115,8 +1115,6 @@ begin
     exit;
   _DefaultThreadPool.Finalize;
 end;
-
-
 
 initialization
 

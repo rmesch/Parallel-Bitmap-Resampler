@@ -1,42 +1,41 @@
 object DemoMain: TDemoMain
   Left = 0
-  Top = 0
+  Top = 18
   Caption = 'DemoMain'
-  ClientHeight = 561
-  ClientWidth = 935
+  ClientHeight = 509
+  ClientWidth = 922
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBtnText
   Font.Height = -11
   Font.Name = 'Segoe UI Semibold'
   Font.Style = []
-  OldCreateOrder = False
+  Position = poDesigned
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnResize = FormResize
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 476
+    Left = 470
     Top = 0
-    Width = 4
-    Height = 561
-    ExplicitLeft = 305
-    ExplicitHeight = 386
+    Width = 0
+    Height = 509
+    ExplicitLeft = 433
+    ExplicitHeight = 472
   end
   object Panel1: TPanel
     Left = 0
     Top = 0
-    Width = 476
-    Height = 561
+    Width = 470
+    Height = 509
     Align = alLeft
     Caption = 'Panel1'
     TabOrder = 0
     object Panel3: TPanel
       Left = 1
       Top = 1
-      Width = 474
+      Width = 468
       Height = 72
       Align = alTop
       TabOrder = 0
@@ -74,7 +73,7 @@ object DemoMain: TDemoMain
         end
       end
       object AlphaChannel: TRadioGroup
-        Left = 264
+        Left = 258
         Top = 1
         Width = 209
         Height = 70
@@ -92,12 +91,11 @@ object DemoMain: TDemoMain
       object GroupBox4: TGroupBox
         Left = 153
         Top = 1
-        Width = 111
+        Width = 105
         Height = 70
         Align = alClient
         Caption = 'Image from File'
         TabOrder = 2
-        ExplicitLeft = 147
         object Load: TButton
           Left = 6
           Top = 36
@@ -111,8 +109,8 @@ object DemoMain: TDemoMain
     end
     object Panel5: TPanel
       Left = 1
-      Top = 523
-      Width = 474
+      Top = 471
+      Width = 468
       Height = 37
       Align = alBottom
       BevelEdges = []
@@ -125,7 +123,7 @@ object DemoMain: TDemoMain
         Caption = 'Original: '
       end
       object Label7: TLabel
-        Left = 131
+        Left = 125
         Top = 1
         Width = 342
         Height = 35
@@ -135,13 +133,16 @@ object DemoMain: TDemoMain
           'Hold down the right mouse button over an image to see the alpha-' +
           'channel, hold down the left button to see the BGR-channels'
         WordWrap = True
+        ExplicitLeft = 133
+        ExplicitTop = 0
+        ExplicitHeight = 36
       end
     end
     object ScrollBox1: TScrollBox
       Left = 1
       Top = 73
-      Width = 474
-      Height = 450
+      Width = 468
+      Height = 398
       HorzScrollBar.Tracking = True
       VertScrollBar.Tracking = True
       Align = alClient
@@ -161,23 +162,23 @@ object DemoMain: TDemoMain
     end
   end
   object Panel2: TPanel
-    Left = 480
+    Left = 470
     Top = 0
-    Width = 455
-    Height = 561
+    Width = 452
+    Height = 509
     Align = alClient
     TabOrder = 1
     object Panel4: TPanel
       Left = 1
       Top = 1
-      Width = 453
+      Width = 450
       Height = 72
       Align = alTop
       TabOrder = 0
       object GroupBox2: TGroupBox
         Left = 1
         Top = 1
-        Width = 194
+        Width = 195
         Height = 70
         Align = alLeft
         Caption = 'New Size'
@@ -251,7 +252,7 @@ object DemoMain: TDemoMain
         end
       end
       object CombineModes: TRadioGroup
-        Left = 312
+        Left = 309
         Top = 1
         Width = 140
         Height = 70
@@ -267,9 +268,9 @@ object DemoMain: TDemoMain
         OnClick = ThreadingChange
       end
       object GroupBox3: TGroupBox
-        Left = 195
+        Left = 196
         Top = 1
-        Width = 117
+        Width = 113
         Height = 70
         Align = alClient
         Caption = 'Filter and Threading'
@@ -310,25 +311,26 @@ object DemoMain: TDemoMain
     object Panel7: TPanel
       Left = 1
       Top = 73
-      Width = 453
-      Height = 487
+      Width = 450
+      Height = 435
       Align = alClient
       Caption = 'Panel7'
       TabOrder = 1
       object Splitter2: TSplitter
         Left = 1
         Top = 233
-        Width = 451
-        Height = 3
+        Width = 448
+        Height = 4
         Cursor = crVSplit
         Align = alTop
-        ExplicitTop = 42
-        ExplicitWidth = 283
+        ExplicitLeft = 0
+        ExplicitTop = 232
+        ExplicitWidth = 454
       end
       object Panel8: TPanel
         Left = 1
         Top = 1
-        Width = 451
+        Width = 448
         Height = 232
         Align = alTop
         Caption = 'Panel8'
@@ -336,8 +338,8 @@ object DemoMain: TDemoMain
         object ScrollBox2: TScrollBox
           Left = 1
           Top = 1
-          Width = 449
-          Height = 191
+          Width = 446
+          Height = 190
           HorzScrollBar.Tracking = True
           VertScrollBar.Tracking = True
           Align = alClient
@@ -351,15 +353,16 @@ object DemoMain: TDemoMain
             Width = 105
             Height = 105
             AutoSize = True
+            OnDblClick = Image2DblClick
             OnMouseDown = Image2MouseDown
             OnMouseUp = Image2MouseUp
           end
         end
         object Panel6: TPanel
           Left = 1
-          Top = 192
-          Width = 449
-          Height = 39
+          Top = 191
+          Width = 446
+          Height = 40
           Align = alBottom
           TabOrder = 1
           object Time: TLabel
@@ -413,17 +416,17 @@ object DemoMain: TDemoMain
       end
       object Panel9: TPanel
         Left = 1
-        Top = 236
-        Width = 451
-        Height = 250
+        Top = 237
+        Width = 448
+        Height = 197
         Align = alClient
         Caption = 'Panel9'
         TabOrder = 1
         object ScrollBox3: TScrollBox
           Left = 1
           Top = 1
-          Width = 449
-          Height = 209
+          Width = 446
+          Height = 156
           HorzScrollBar.Tracking = True
           VertScrollBar.Tracking = True
           Align = alClient
@@ -443,8 +446,8 @@ object DemoMain: TDemoMain
         end
         object Panel10: TPanel
           Left = 1
-          Top = 210
-          Width = 449
+          Top = 157
+          Width = 446
           Height = 39
           Align = alBottom
           TabOrder = 1
@@ -486,5 +489,9 @@ object DemoMain: TDemoMain
       '*.tiff)|*.tiff'
     Left = 137
     Top = 105
+  end
+  object SPD: TSavePictureDialog
+    Left = 137
+    Top = 185
   end
 end
