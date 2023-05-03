@@ -1,0 +1,7 @@
+2023-5-3
+
+  First (prototype) version of a port to FMX. 
+  Supports Windows platform only, and the thread-pools have not been implemented yet,
+so the parallel-threads-routine cannot be used in threads.
+  One simple Demo DemoScaleFMX.dproj, which shows basic use.
+  Speed with FMX is a bit disappointing.

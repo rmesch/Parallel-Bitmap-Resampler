@@ -1,0 +1,357 @@
+object DemoFMXMain: TDemoFMXMain
+  Left = 0
+  Top = 0
+  Caption = 'Form3'
+  ClientHeight = 472
+  ClientWidth = 840
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnResize = FormResize
+  OnShow = FormShow
+  DesignerMasterStyle = 0
+  object Panel1: TPanel
+    Align = Left
+    Size.Width = 417.000000000000000000
+    Size.Height = 472.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 0
+    object Panel5: TPanel
+      Align = Top
+      Size.Width = 417.000000000000000000
+      Size.Height = 73.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      object GroupBox3: TGroupBox
+        Align = MostLeft
+        Size.Width = 120.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'Test Bitmap'
+        TabOrder = 0
+        object TestSizes: TComboBox
+          Position.Y = 20.000000000000000000
+          TabOrder = 38
+        end
+        object Make: TButton
+          Position.Y = 45.000000000000000000
+          Size.Width = 100.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 39
+          Text = 'Make'
+          OnClick = MakeClick
+        end
+      end
+      object GroupBox4: TGroupBox
+        Align = Left
+        Position.X = 120.000000000000000000
+        Size.Width = 105.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'ImageFromFile'
+        TabOrder = 1
+        object Load: TButton
+          Position.X = 8.000000000000000000
+          Position.Y = 45.000000000000000000
+          Size.Width = 89.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 38
+          Text = 'Load'
+          OnClick = LoadClick
+        end
+      end
+    end
+    object Panel6: TPanel
+      Align = Bottom
+      Position.Y = 434.000000000000000000
+      Size.Width = 417.000000000000000000
+      Size.Height = 38.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      object OriginalSize: TLabel
+        Position.X = 8.000000000000000000
+        Position.Y = 8.000000000000000000
+        Text = 'OriginalSize'
+        TabOrder = 0
+      end
+    end
+    object ScrollBox1: TScrollBox
+      Align = Client
+      Size.Width = 417.000000000000000000
+      Size.Height = 361.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 3
+      Viewport.Width = 417.000000000000000000
+      Viewport.Height = 361.000000000000000000
+      object Rectangle1: TRectangle
+        Align = Client
+        Fill.Color = claDarkslategray
+        Size.Width = 417.000000000000000000
+        Size.Height = 361.000000000000000000
+        Size.PlatformDefault = False
+        object Image1: TImage
+          MultiResBitmap.LoadSize = 2
+          MultiResBitmap = <
+            item
+            end>
+          MarginWrapMode = Original
+          WrapMode = Original
+        end
+      end
+    end
+  end
+  object Splitter1: TSplitter
+    Align = Left
+    Cursor = crHSplit
+    MinSize = 20.000000000000000000
+    Position.X = 417.000000000000000000
+    Size.Width = 8.000000000000000000
+    Size.Height = 472.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object Panel2: TPanel
+    Align = Client
+    Size.Width = 415.000000000000000000
+    Size.Height = 472.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 2
+    object Panel4: TPanel
+      Align = Client
+      Size.Width = 415.000000000000000000
+      Size.Height = 399.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      object Panel7: TPanel
+        Align = Top
+        Size.Width = 415.000000000000000000
+        Size.Height = 193.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 0
+        object Panel9: TPanel
+          Align = Bottom
+          Position.Y = 160.000000000000000000
+          Size.Width = 415.000000000000000000
+          Size.Height = 33.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 1
+          object Timing: TLabel
+            Position.X = 8.000000000000000000
+            Position.Y = 8.000000000000000000
+            Text = 'Timing'
+            TabOrder = 0
+          end
+        end
+        object ScrollBox2: TScrollBox
+          Align = Client
+          Size.Width = 415.000000000000000000
+          Size.Height = 160.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 2
+          Viewport.Width = 415.000000000000000000
+          Viewport.Height = 160.000000000000000000
+          object Rectangle2: TRectangle
+            Align = Client
+            Fill.Color = claDarkslategray
+            Size.Width = 415.000000000000000000
+            Size.Height = 160.000000000000000000
+            Size.PlatformDefault = False
+            object Image2: TImage
+              MultiResBitmap.LoadSize = 2
+              MultiResBitmap = <
+                item
+                end>
+              MarginWrapMode = Original
+              WrapMode = Original
+            end
+          end
+        end
+      end
+      object Panel8: TPanel
+        Align = Client
+        Size.Width = 415.000000000000000000
+        Size.Height = 206.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 1
+        object Panel10: TPanel
+          Align = Bottom
+          Position.Y = 168.000000000000000000
+          Size.Width = 415.000000000000000000
+          Size.Height = 38.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 1
+          object TimingSystem: TLabel
+            Position.X = 8.000000000000000000
+            Position.Y = 8.000000000000000000
+            Text = 'TimingSystem'
+            TabOrder = 0
+          end
+          object Label2: TLabel
+            Align = Right
+            Position.X = 128.000000000000000000
+            Size.Width = 287.000000000000000000
+            Size.Height = 38.000000000000000000
+            Size.PlatformDefault = False
+            Text = 'Result using TCanvas.DrawBitmap with Quickscaling=False'
+            TabOrder = 1
+          end
+        end
+        object ScrollBox3: TScrollBox
+          Align = Client
+          Size.Width = 415.000000000000000000
+          Size.Height = 168.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 2
+          Viewport.Width = 415.000000000000000000
+          Viewport.Height = 168.000000000000000000
+          object Rectangle3: TRectangle
+            Align = Client
+            Fill.Color = claDarkslategray
+            Size.Width = 415.000000000000000000
+            Size.Height = 168.000000000000000000
+            Size.PlatformDefault = False
+            object Image4: TImage
+              MultiResBitmap.LoadSize = 2
+              MultiResBitmap = <
+                item
+                end>
+              MarginWrapMode = Original
+              WrapMode = Original
+            end
+          end
+          object Image3: TImage
+            MultiResBitmap = <
+              item
+              end>
+            WrapMode = Original
+          end
+        end
+      end
+    end
+    object Panel3: TPanel
+      Align = Top
+      Size.Width = 415.000000000000000000
+      Size.Height = 73.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      object GroupBox1: TGroupBox
+        Align = MostLeft
+        Size.Width = 177.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'New Size'
+        TabOrder = 0
+        object Width: TSpinBox
+          Touch.InteractiveGestures = [LongTap, DoubleTap]
+          TabOrder = 39
+          Cursor = crIBeam
+          Min = 8.000000000000000000
+          Value = 8.000000000000000000
+          Increment = 10.000000000000000000
+          Position.Y = 20.000000000000000000
+          TextSettings.Font.Size = 14.000000000000000000
+          Scale.X = 0.800000011920929000
+          Scale.Y = 0.800000011920929000
+          Size.Width = 97.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
+          StyledSettings = [Family, Style, FontColor]
+          OnChange = WidthChange
+        end
+        object Height: TSpinBox
+          Touch.InteractiveGestures = [LongTap, DoubleTap]
+          TabOrder = 38
+          Cursor = crIBeam
+          Min = 8.000000000000000000
+          Value = 8.000000000000000000
+          Increment = 10.000000000000000000
+          Position.X = 88.000000000000000000
+          Position.Y = 20.000000000000000000
+          TextSettings.Font.Size = 14.000000000000000000
+          Scale.X = 0.800000011920929000
+          Scale.Y = 0.800000011920929000
+          Size.Width = 97.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
+          StyledSettings = [Family, Style, FontColor]
+          OnChange = HeightChange
+        end
+        object Label1: TLabel
+          AutoSize = True
+          Position.X = 80.000000000000000000
+          Position.Y = 18.000000000000000000
+          Size.Width = 120.000000000000000000
+          Size.Height = 16.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'x'
+          TabOrder = 40
+        end
+        object KeepAspect: TCheckBox
+          IsChecked = True
+          Position.X = 8.000000000000000000
+          Position.Y = 48.000000000000000000
+          TabOrder = 41
+          Text = 'Keep Aspect'
+          object Scale: TButton
+            Position.X = 97.000000000000000000
+            Position.Y = -3.000000000000000000
+            Size.Width = 64.000000000000000000
+            Size.Height = 20.000000000000000000
+            Size.PlatformDefault = False
+            TabOrder = 19
+            Text = 'Scale'
+            OnClick = ScaleClick
+          end
+        end
+      end
+      object GroupBox2: TGroupBox
+        Align = Left
+        Position.X = 177.000000000000000000
+        Size.Width = 144.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'Filters and Threading'
+        TabOrder = 1
+        object Filters: TComboBox
+          Items.Strings = (
+            'Box'
+            'Bilinear'
+            'Bicubic'
+            'Lanczos')
+          ItemIndex = 1
+          Position.X = 16.000000000000000000
+          Position.Y = 16.000000000000000000
+          Size.Width = 113.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 38
+          OnChange = FiltersChange
+        end
+        object Threading: TComboBox
+          Items.Strings = (
+            'No Threading'
+            'Parallel Threads'
+            'Parallel Tasks')
+          ItemIndex = 0
+          Position.X = 16.000000000000000000
+          Position.Y = 43.000000000000000000
+          Size.Width = 113.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
+          TabOrder = 39
+          OnChange = FiltersChange
+        end
+      end
+    end
+  end
+  object OD: TOpenDialog
+    Filter = 
+      'All (*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico)|*.bmp;*.jpg;*.png;*.gi' +
+      'f;*.tif;*.ico'
+    Left = 232
+    Top = 48
+  end
+end

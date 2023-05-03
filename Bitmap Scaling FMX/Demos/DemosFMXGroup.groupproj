@@ -1,0 +1,36 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{BC41B479-E785-4243-964A-0F7294EA6ECC}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="DemoScaleFMX.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="DemoScaleFMX">
+        <MSBuild Projects="DemoScaleFMX.dproj"/>
+    </Target>
+    <Target Name="DemoScaleFMX:Clean">
+        <MSBuild Projects="DemoScaleFMX.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DemoScaleFMX:Make">
+        <MSBuild Projects="DemoScaleFMX.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="DemoScaleFMX"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="DemoScaleFMX:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="DemoScaleFMX:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
