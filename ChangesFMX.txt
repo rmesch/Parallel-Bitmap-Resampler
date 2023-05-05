@@ -1,3 +1,6 @@
+2023-5-5
+  More functionality in DemoScaleFMX: Alpha-combine-modes and zoom-tool.
+
 2023-5-3
 
   First (prototype) version of a port to FMX. 

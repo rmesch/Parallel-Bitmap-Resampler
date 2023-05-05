@@ -9,7 +9,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
-  Vcl.Samples.Spin, Vcl.ExtDlgs, uScale;
+  Vcl.Samples.Spin, Vcl.ExtDlgs, uScale, System.ImageList, Vcl.ImgList,
+  Vcl.VirtualImageList, Vcl.BaseImageCollection, Vcl.ImageCollection;
 
 type
   TDemoMain = class(TForm)
@@ -63,6 +64,11 @@ type
     Radius: TLabel;
     Apply: TButton;
     SPD: TSavePictureDialog;
+    ZoomIn: TButton;
+    ImageCollection1: TImageCollection;
+    VirtualImageList1: TVirtualImageList;
+    ZoomOut: TButton;
+    NoZoom: TButton;
     procedure FormCreate(Sender: TObject);
     procedure MakeTestBitmapClick(Sender: TObject);
     procedure ShowAlphaClick(Sender: TObject);
@@ -73,7 +79,6 @@ type
     procedure ResizeClick(Sender: TObject);
     procedure ThreadingChange(Sender: TObject);
     procedure LoadClick(Sender: TObject);
-    procedure FormResize(Sender: TObject);
     procedure ShowAlphaTargetClick(Sender: TObject);
     procedure Image1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; x, Y: Integer);
@@ -93,10 +98,15 @@ type
     procedure ScrollBox1MouseWheel(Sender: TObject; Shift: TShiftState;
       WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
     procedure Image2DblClick(Sender: TObject);
+    procedure Panel7Resize(Sender: TObject);
+    procedure ZoomInClick(Sender: TObject);
+    procedure ZoomOutClick(Sender: TObject);
+    procedure NoZoomClick(Sender: TObject);
   private
     TheSource, TheOriginal, TheTarget, TheWIC: TBitmap;
     Aspect: double;
     ShowAlpha, Transparency: Boolean;
+    ZoomFact: Integer;
     procedure MakeTestBitmapAndRun;
     procedure DisplaySource;
     procedure MakeSourceAlpha;
@@ -110,6 +120,7 @@ type
     procedure Display(const bm: TBitmap; const im: TImage);
     procedure DisplayAlpha(const bm: TBitmap; im: TImage);
     procedure DisplayBGR(const bm: TBitmap; im: TImage);
+    procedure DisplayZooms;
     { Private-Deklarationen }
   public
     { Public-Deklarationen }
@@ -122,7 +133,7 @@ implementation
 
 {$R *.dfm}
 
-uses uTools, System.Diagnostics;
+uses uTools, System.Diagnostics, System.Math;
 
 function GetBMWidth(i: Integer): Integer;
 begin
@@ -139,7 +150,7 @@ var
   i: Integer;
 begin
   Aspect := 1;
-
+  ZoomFact := 1;
   // Make all panels flat
   for i := 0 to ComponentCount - 1 do
     if Components[i] is TPanel then
@@ -169,12 +180,6 @@ begin
   TheTarget.Free;
   TheWIC.Free;
   uScale.FinalizeDefaultResamplingThreads;
-end;
-
-procedure TDemoMain.FormResize(Sender: TObject);
-begin
-  Panel1.Width := clientwidth div 2;
-  Panel8.Height := Panel7.Height div 2;
 end;
 
 procedure TDemoMain.FormShow(Sender: TObject);
@@ -219,6 +224,8 @@ procedure TDemoMain.Image2MouseDown(Sender: TObject; Button: TMouseButton;
 var
   im: TImage;
 begin
+  if ZoomFact > 1 then
+    exit;
   im := TImage(Sender);
   if Button = mbRight then
     DisplayAlpha(TheTarget, im)
@@ -229,6 +236,8 @@ end;
 procedure TDemoMain.Image2MouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
 begin
+  if ZoomFact > 1 then
+    exit;
   DisplayTarget;
 end;
 
@@ -237,6 +246,8 @@ procedure TDemoMain.Image3MouseDown(Sender: TObject; Button: TMouseButton;
 var
   im: TImage;
 begin
+  if ZoomFact > 1 then
+    exit;
   im := TImage(Sender);
   if Button = mbRight then
     DisplayAlpha(TheWIC, im)
@@ -247,6 +258,8 @@ end;
 procedure TDemoMain.Image3MouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
 begin
+  if ZoomFact > 1 then
+    exit;
   DisplayWIC;
 end;
 
@@ -256,6 +269,7 @@ var
 begin
   if not OPD.Execute() then
     exit;
+  ZoomFact := 1;
   WIC := TWICImage.Create;
   try
     WIC.LoadFromFile(OPD.Filename);
@@ -273,6 +287,7 @@ procedure TDemoMain.MakeTestBitmapAndRun;
 var
   bm: TTestBitmap;
 begin
+  ZoomFact := 1;
   bm := TTestBitmap.Create;
   try
     screen.Cursor := crHourGlass;
@@ -309,6 +324,18 @@ begin
   if KeepAspect.Checked then
     Height.Value := round(Width.Value / Aspect);
   Height.OnChange := HeightChange;
+end;
+
+procedure TDemoMain.ZoomInClick(Sender: TObject);
+begin
+  inc(ZoomFact);
+  DisplayZooms;
+end;
+
+procedure TDemoMain.ZoomOutClick(Sender: TObject);
+begin
+  dec(ZoomFact);
+  DisplayZooms;
 end;
 
 procedure TDemoMain.AlphaChannelClick(Sender: TObject);
@@ -376,6 +403,33 @@ end;
 procedure TDemoMain.DisplayWIC;
 begin
   Display(TheWIC, Image3);
+end;
+
+procedure TDemoMain.DisplayZooms;
+var
+  zbm: TBitmap;
+begin
+  ZoomFact := max(ZoomFact, 1);
+  if ZoomFact = 1 then
+  begin
+    DisplayTarget;
+    DisplayWIC;
+    exit;
+  end;
+  zbm := TBitmap.Create;
+  try
+    try
+      Magnify(TheTarget, zbm, ZoomFact);
+      Display(zbm, Image2);
+      Magnify(TheWIC, zbm, ZoomFact);
+      Display(zbm, Image3);
+    except
+      ShowMessage('Zoom factor too large!');
+      dec(ZoomFact);
+    end;
+  finally
+    zbm.Free;
+  end;
 end;
 
 const
@@ -446,7 +500,6 @@ begin
   end;
   if CombineModes.ItemIndex = 3 then
     TheTarget.Transparent := true;
-  DisplayTarget;
   Timing := StopWatch.ElapsedMilliseconds;
   Time.Caption := Inttostr(Timing) + ' ms';
   Radius.Caption := 'Filter-Radius: ' + FloatToStrF(r, ffFixed, 4, 2);
@@ -488,7 +541,7 @@ begin
   finally
     bm.Free;
   end;
-  DisplayWIC;
+  DisplayZooms;
   Timing := StopWatch.ElapsedMilliseconds;
   TimeWIC.Caption := Inttostr(Timing) + ' ms';
   screen.Cursor := crDefault;
@@ -519,6 +572,17 @@ end;
 procedure TDemoMain.MakeTestBitmapClick(Sender: TObject);
 begin
   MakeTestBitmapAndRun;
+end;
+
+procedure TDemoMain.NoZoomClick(Sender: TObject);
+begin
+  ZoomFact := 1;
+  DisplayZooms;
+end;
+
+procedure TDemoMain.Panel7Resize(Sender: TObject);
+begin
+  Panel8.Height := Panel7.Height div 2;
 end;
 
 procedure TDemoMain.ResizeClick(Sender: TObject);

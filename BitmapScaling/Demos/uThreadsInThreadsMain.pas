@@ -99,6 +99,7 @@ type
     Label2: TLabel;
     TransparencyGroup: TRadioGroup;
     Threading: TRadioGroup;
+    DriveComboBox1: TDriveComboBox;
     procedure FormCreate(Sender: TObject);
     procedure ThumbViewResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);

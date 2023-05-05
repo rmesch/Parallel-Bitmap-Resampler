@@ -1,4 +1,6 @@
 BitmapScaling:
+2023-5-5
+  More functionality in demo DemoScale: Zoom-tool.
 2023-5-3
   Fixed a possible runtime error for the routine using tasks.
   The tasks-routine is now threadsafe, see ThreadsInThreads for a test.

@@ -85,13 +85,27 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     TabOrder = 2
     object DLB: TDirectoryListBox
       Left = 1
-      Top = 1
+      Top = 20
       Width = 151
-      Height = 365
+      Height = 346
       Align = alClient
       DirLabel = Label1
       TabOrder = 0
       OnChange = DLBChange
+      ExplicitTop = 32
+      ExplicitHeight = 334
+    end
+    object DriveComboBox1: TDriveComboBox
+      Left = 1
+      Top = 1
+      Width = 151
+      Height = 19
+      Align = alTop
+      DirList = DLB
+      TabOrder = 1
+      ExplicitLeft = 4
+      ExplicitTop = 6
+      ExplicitWidth = 145
     end
   end
   object Panel4: TPanel

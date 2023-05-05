@@ -19,7 +19,7 @@ procedure WICToBmp(const aWic: TWICImage; const bmp: TBitmap);
 procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
   const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
 
-/// <summary> Magnifies Source to Target by enlarging pixels. For inspection of the pixel-structure. Sets Source and Target to pf24bit. </summary>
+/// <summary> Magnifies Source to Target by enlarging pixels. For inspection of the pixel-structure.  </summary>
 procedure Magnify(const Source, target: TBitmap; fact: integer);
 
 /// <summary> Sets the alpha of all pixels to 255. bm must be 32bit </summary>
@@ -216,24 +216,24 @@ var
   x, y, i, j: integer;
   bpsS, bpsT: integer;
   rS, rT: PByte;
-  pS, pT: PRGBTriple;
+  pS, pT: PRGBQuad;
 begin
-  Source.PixelFormat := pf24bit; // it's only for display
-  target.PixelFormat := pf24bit;
+  Source.PixelFormat := pf32bit;
+  target.PixelFormat := pf32bit;
   sw := Source.Width;
   sh := Source.Height;
   target.Width := fact * sw;
   target.Height := fact * sh;
-  bpsS := ((sw * 24 + 31) and not 31) div 8;
-  bpsT := ((sw * fact * 24 + 31) and not 31) div 8;
+  bpsS := ((sw * 32 + 31) and not 31) div 8;
+  bpsT := ((sw * fact * 32 + 31) and not 31) div 8;
   rS := Source.ScanLine[0];
   rT := target.ScanLine[0];
   for y := 0 to sh - 1 do
   begin
     for j := 1 to fact do
     begin
-      pS := PRGBTriple(rS);
-      pT := PRGBTriple(rT);
+      pS := PRGBQuad(rS);
+      pT := PRGBQuad(rT);
       for x := 0 to sw - 1 do
       begin
         for i := 1 to fact do

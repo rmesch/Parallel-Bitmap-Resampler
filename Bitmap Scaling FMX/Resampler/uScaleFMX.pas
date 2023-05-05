@@ -17,7 +17,7 @@ unit uScaleFMX;
   and including fast threaded routines.
   Copyright 2003-2023 Renate Schaaf
   Inspired by A.Melander, M.Lischke, E.Grange.
-  Supported Delphi-versions: 11.x and up, probably works with
+  Supported Delphi-versions: 10.4 and up, probably works with
   some earlier versions, but untested.
   The "beef" of the algorithm used is in the routines
   MakeContributors and ProcessRow
@@ -543,7 +543,7 @@ end;
 procedure ProcessRow(y, Sbps, Tbps, xminSource, xmaxSource, xmin, xmax: integer;
   rStart, rTStart: PByte; runstart: PBGRAInt;
   const ContribsX, ContribsY: TContribArray;
-  AlphaCombineMode: TAlphaCombineMode); // inline;
+  AlphaCombineMode: TAlphaCombineMode); inline;
 var
   ps, pT: PBGRA;
   rs, rT: PByte;
