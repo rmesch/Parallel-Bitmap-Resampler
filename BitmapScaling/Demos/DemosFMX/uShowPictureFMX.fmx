@@ -1,0 +1,27 @@
+object ShowPicture: TShowPicture
+  Left = 0
+  Top = 0
+  Caption = 'Form3'
+  ClientHeight = 500
+  ClientWidth = 749
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  DesignerMasterStyle = 0
+  object Rectangle1: TRectangle
+    Align = Client
+    Fill.Color = xFF253535
+    Size.Width = 749.000000000000000000
+    Size.Height = 500.000000000000000000
+    Size.PlatformDefault = False
+    object Image1: TImage
+      MultiResBitmap = <
+        item
+        end>
+      Align = Client
+      Size.Width = 749.000000000000000000
+      Size.Height = 500.000000000000000000
+      Size.PlatformDefault = False
+    end
+  end
+end

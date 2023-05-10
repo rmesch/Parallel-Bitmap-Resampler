@@ -68,7 +68,10 @@ implementation
 
 {$R *.dfm}
 
-uses uScale, uTools, Winapi.MMSystem;
+uses
+//You now need to put uScale and uScaleCommon into the uses clause
+uScale, uScaleCommon,
+uTools, uTestBitmap, Winapi.MMSystem;
 
 type
   // Defines a normalized zoom-zectangle [xcenter-radius,xcenter+radius]x[ycenter-radius,ycenter+radius]

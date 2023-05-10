@@ -103,6 +103,9 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <DCC_SYMBOL_PLATFORM>false</DCC_SYMBOL_PLATFORM>
+        <DCC_MapFile>3</DCC_MapFile>
+        <DCC_RangeChecking>true</DCC_RangeChecking>
+        <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -133,8 +136,10 @@
             <Form>DemoMain</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="uTools.pas"/>
-        <DCCReference Include="..\Resampler\uScale.pas"/>
+        <DCCReference Include="..\..\Resampler\uScale.pas"/>
+        <DCCReference Include="..\..\Resampler\uScaleCommon.pas"/>
+        <DCCReference Include="..\..\Utilities\uTestBitmap.pas"/>
+        <DCCReference Include="..\..\Utilities\UtilitiesVCL\uTools.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

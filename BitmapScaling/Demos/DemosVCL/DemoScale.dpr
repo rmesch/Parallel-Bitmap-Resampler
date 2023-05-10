@@ -3,10 +3,12 @@ program DemoScale;
 uses
   Vcl.Forms,
   uDemoScaleMain in 'uDemoScaleMain.pas' {DemoMain},
-  uTools in 'uTools.pas',
   Vcl.Themes,
   Vcl.Styles,
-  uScale in '..\Resampler\uScale.pas';
+  uScale in '..\..\Resampler\uScale.pas',
+  uScaleCommon in '..\..\Resampler\uScaleCommon.pas',
+  uTestBitmap in '..\..\Utilities\uTestBitmap.pas',
+  uTools in '..\..\Utilities\UtilitiesVCL\uTools.pas';
 
 {$R *.res}
 

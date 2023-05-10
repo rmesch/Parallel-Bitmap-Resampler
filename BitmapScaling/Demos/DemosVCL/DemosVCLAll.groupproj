@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{13DA48B0-D3A8-41E3-B9F2-D56D13CFF77B}</ProjectGuid>
+        <ProjectGuid>{381ABA0F-FC6E-4C69-819D-0ECF18C06AFC}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
         <Projects Include="DemoScale.dproj">

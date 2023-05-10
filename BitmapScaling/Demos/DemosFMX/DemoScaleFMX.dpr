@@ -4,9 +4,10 @@ uses
   System.StartUpCopy,
   FMX.Forms,
   uDemoScaleFMX in 'uDemoScaleFMX.pas' {DemoFMXMain},
-  uScaleFMX in '..\Resampler\uScaleFMX.pas',
-  uTestBitmap in 'uTestBitmap.pas',
-  uToolsFMX in 'uToolsFMX.pas';
+  uScaleCommon in '..\..\Resampler\uScaleCommon.pas',
+  uScaleFMX in '..\..\Resampler\uScaleFMX.pas',
+  uTestBitmap in '..\..\Utilities\uTestBitmap.pas',
+  uToolsFMX in '..\..\Utilities\UtilitiesFMX\uToolsFMX.pas';
 
 {$R *.res}
 

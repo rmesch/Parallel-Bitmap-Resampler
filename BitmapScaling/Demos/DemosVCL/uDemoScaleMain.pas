@@ -9,8 +9,10 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
   System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
-  Vcl.Samples.Spin, Vcl.ExtDlgs, uScale, System.ImageList, Vcl.ImgList,
-  Vcl.VirtualImageList, Vcl.BaseImageCollection, Vcl.ImageCollection;
+  Vcl.Samples.Spin, Vcl.ExtDlgs, System.ImageList, Vcl.ImgList,
+  Vcl.VirtualImageList, Vcl.BaseImageCollection, Vcl.ImageCollection, System.Types
+  //You now need to put uScale and uScaleCommon into the uses clause
+  ,uScale, uScaleCommon;
 
 type
   TDemoMain = class(TForm)
@@ -133,7 +135,7 @@ implementation
 
 {$R *.dfm}
 
-uses uTools, System.Diagnostics, System.Math;
+uses uTools, uTestBitmap, System.Diagnostics, System.Math;
 
 function GetBMWidth(i: Integer): Integer;
 begin
@@ -170,7 +172,7 @@ begin
   TheOriginal := TBitmap.Create;
   TheTarget := TBitmap.Create;
   TheWIC := TBitmap.Create;
-  uScale.InitDefaultResamplingThreads;
+  uScaleCommon.InitDefaultResamplingThreads;
 end;
 
 procedure TDemoMain.FormDestroy(Sender: TObject);
@@ -179,7 +181,7 @@ begin
   TheOriginal.Free;
   TheTarget.Free;
   TheWIC.Free;
-  uScale.FinalizeDefaultResamplingThreads;
+  uScaleCommon.FinalizeDefaultResamplingThreads;
 end;
 
 procedure TDemoMain.FormShow(Sender: TObject);

@@ -165,8 +165,6 @@ object DemoMain: TDemoMain
     Height = 509
     Align = alClient
     TabOrder = 1
-    ExplicitLeft = 470
-    ExplicitWidth = 452
     object Panel4: TPanel
       Left = 1
       Top = 1
@@ -174,7 +172,6 @@ object DemoMain: TDemoMain
       Height = 72
       Align = alTop
       TabOrder = 0
-      ExplicitWidth = 450
       object GroupBox2: TGroupBox
         Left = 1
         Top = 1
@@ -266,7 +263,6 @@ object DemoMain: TDemoMain
           'Preserve Transparency')
         TabOrder = 1
         OnClick = ThreadingChange
-        ExplicitLeft = 309
       end
       object GroupBox3: TGroupBox
         Left = 196
@@ -276,7 +272,6 @@ object DemoMain: TDemoMain
         Align = alClient
         Caption = 'Filter and Threading'
         TabOrder = 2
-        ExplicitWidth = 113
         object Filters: TComboBox
           Left = 6
           Top = 16
@@ -319,7 +314,6 @@ object DemoMain: TDemoMain
       Caption = 'Panel7'
       TabOrder = 1
       OnResize = Panel7Resize
-      ExplicitWidth = 450
       object Splitter2: TSplitter
         Left = 1
         Top = 233
@@ -339,7 +333,6 @@ object DemoMain: TDemoMain
         Align = alTop
         Caption = 'Panel8'
         TabOrder = 0
-        ExplicitWidth = 448
         object ScrollBox2: TScrollBox
           Left = 1
           Top = 1
@@ -352,7 +345,6 @@ object DemoMain: TDemoMain
           ParentColor = False
           TabOrder = 0
           OnMouseWheel = ScrollBox1MouseWheel
-          ExplicitWidth = 446
           object Image2: TImage
             Left = 0
             Top = 0
@@ -371,7 +363,6 @@ object DemoMain: TDemoMain
           Height = 40
           Align = alBottom
           TabOrder = 1
-          ExplicitWidth = 446
           object Time: TLabel
             Left = 256
             Top = 2
@@ -475,7 +466,6 @@ object DemoMain: TDemoMain
         Align = alClient
         Caption = 'Panel9'
         TabOrder = 1
-        ExplicitWidth = 448
         object ScrollBox3: TScrollBox
           Left = 1
           Top = 1
@@ -488,7 +478,6 @@ object DemoMain: TDemoMain
           ParentColor = False
           TabOrder = 0
           OnMouseWheel = ScrollBox1MouseWheel
-          ExplicitWidth = 446
           object Image3: TImage
             Left = 0
             Top = 0
@@ -506,7 +495,6 @@ object DemoMain: TDemoMain
           Height = 39
           Align = alBottom
           TabOrder = 1
-          ExplicitWidth = 446
           object TimeWIC: TLabel
             Left = 256
             Top = 2

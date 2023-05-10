@@ -6,14 +6,17 @@ uses
   uShowPicture in 'uShowPicture.pas' {ShowPicture},
   Vcl.Themes,
   Vcl.Styles,
-  uTools in 'uTools.pas',
-  uScale in '..\Resampler\uScale.pas';
+  uScale in '..\..\Resampler\uScale.pas',
+  uScaleCommon in '..\..\Resampler\uScaleCommon.pas',
+  uDirectoryTree in '..\..\Utilities\UtilitiesVCL\uDirectoryTree.pas',
+  uTools in '..\..\Utilities\UtilitiesVCL\uTools.pas';
 
 {$R *.res}
 
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
+  TStyleManager.TrySetStyle('Windows10 SlateGray');
   Application.CreateForm(TThreadsInThreadsMain, ThreadsInThreadsMain);
   Application.CreateForm(TShowPicture, ShowPicture);
   Application.Run;

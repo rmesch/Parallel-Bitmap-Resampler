@@ -1,9 +1,12 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{BC41B479-E785-4243-964A-0F7294EA6ECC}</ProjectGuid>
+        <ProjectGuid>{AB8FF750-A258-44FD-BF27-2A71B3A21F04}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
         <Projects Include="DemoScaleFMX.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="ThreadsInThreadsFMX.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -23,14 +26,23 @@
     <Target Name="DemoScaleFMX:Make">
         <MSBuild Projects="DemoScaleFMX.dproj" Targets="Make"/>
     </Target>
+    <Target Name="ThreadsInThreadsFMX">
+        <MSBuild Projects="ThreadsInThreadsFMX.dproj"/>
+    </Target>
+    <Target Name="ThreadsInThreadsFMX:Clean">
+        <MSBuild Projects="ThreadsInThreadsFMX.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ThreadsInThreadsFMX:Make">
+        <MSBuild Projects="ThreadsInThreadsFMX.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="DemoScaleFMX"/>
+        <CallTarget Targets="DemoScaleFMX;ThreadsInThreadsFMX"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="DemoScaleFMX:Clean"/>
+        <CallTarget Targets="DemoScaleFMX:Clean;ThreadsInThreadsFMX:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="DemoScaleFMX:Make"/>
+        <CallTarget Targets="DemoScaleFMX:Make;ThreadsInThreadsFMX:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

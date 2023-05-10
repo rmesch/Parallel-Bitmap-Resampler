@@ -1,3 +1,9 @@
+2023-5-10
+  Moved code common to FMX and VCL into a new unit uScaleCommon. This unit needs to be added to the uses-clause together with uScaleFMX. Folders BitmapScaling and BitmapScalingFMX have been merged into one.
+  The parallel routines are now all threadsafe, if each thread uses a separate thread-pool. See ThreadsInThreadsFMX in 
+Demos\DemosFMX
+  Utilities used can now be found in Demos\Utilities. There is a brandnew directory-explorer-tree, which is used in ThreadsInThreadsFMX. Please report, if there are issues with it. 
+
 2023-5-5
   More functionality in DemoScaleFMX: Alpha-combine-modes and zoom-tool.
 

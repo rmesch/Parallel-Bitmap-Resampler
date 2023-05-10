@@ -1,4 +1,7 @@
 unit uDemoScaleFMX;
+// Shows how to resample a source-bitmap to a target-bitmap using the
+// procedures in uScaleFMX with various settings.
+// Look at TDemoFMXMain.DoScale to see how the procedures are used.
 
 interface
 
@@ -6,8 +9,13 @@ uses
   System.SysUtils, System.Types, System.UITypes, System.Classes,
   System.Variants,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.StdCtrls,
-  FMX.Controls.Presentation, FMX.Objects, FMX.Layouts, uScaleFMX, FMX.Edit,
-  FMX.EditBox, FMX.SpinBox, FMX.ListBox, System.ImageList, FMX.ImgList;
+  FMX.Controls.Presentation, FMX.Objects, FMX.Layouts,
+  FMX.Edit,
+  FMX.EditBox, FMX.SpinBox, FMX.ListBox, System.ImageList, FMX.ImgList
+  //You now need to put uScaleFMX and uScaleCommon into the uses list.
+  , uScaleFMX, uScaleCommon;
+
+{$O+}
 
 type
   TDemoFMXMain = class(TForm)
@@ -57,6 +65,7 @@ type
     ZoomOut: TButton;
     Button1: TButton;
     Label3: TLabel;
+    SD: TSaveDialog;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -71,6 +80,7 @@ type
     procedure ZoomInClick(Sender: TObject);
     procedure ZoomOutClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
+    procedure Image3Click(Sender: TObject);
   private
     TheOriginal, TheSource, TheTarget, TheScaled: TBitmap;
     Aspect: double;
@@ -119,7 +129,7 @@ begin
   TheScaled := TBitmap.Create;
   Aspect := 1;
   ZoomFact := 1;
-  uScaleFMX.InitDefaultResamplingThreads;
+  InitDefaultResamplingThreads;
   for i := 0 to 18 do
     TestSizes.Items.Add(GetBMWidth(i).ToString);
   TestSizes.ItemIndex := 4;
@@ -147,11 +157,17 @@ begin
   Width.Repaint;
 end;
 
+procedure TDemoFMXMain.Image3Click(Sender: TObject);
+begin
+  if SD.Execute then
+  TheScaled.SaveToFile(SD.filename);
+end;
+
 procedure TDemoFMXMain.LoadClick(Sender: TObject);
 begin
   if not OD.Execute then
     exit;
-  ZoomFact:=1;
+  ZoomFact := 1;
   TheOriginal.LoadFromFile(OD.FileName);
   MakeSourceBitmap;
   DisplaySource;
@@ -163,7 +179,7 @@ procedure TDemoFMXMain.MakeTestBitmapAndRun;
 var
   bm: TTestBitmap;
 begin
-  ZoomFact:=1;
+  ZoomFact := 1;
   bm := TTestBitmap.Create;
   try
     bm.Generate(GetBMWidth(TestSizes.ItemIndex), tkCircles);
@@ -212,7 +228,7 @@ end;
 
 procedure TDemoFMXMain.Button1Click(Sender: TObject);
 begin
-  ZoomFact:=1;
+  ZoomFact := 1;
   DisplayZooms;
 end;
 
@@ -283,13 +299,13 @@ begin
     zbm := TBitmap.Create;
     try
       try
-      Magnify(TheTarget, zbm, ZoomFact);
-      Display(zbm, Image2);
-      Magnify(TheScaled, zbm, ZoomFact);
-      Display(zbm, Image3);
+        Magnify(TheTarget, zbm, ZoomFact);
+        Display(zbm, Image2);
+        Magnify(TheScaled, zbm, ZoomFact);
+        Display(zbm, Image3);
       except
         ShowMessage('Zoom factor too large');
-        dec(zoomfact);
+        dec(ZoomFact);
       end;
     finally
       zbm.Free;
@@ -339,6 +355,7 @@ begin
   TheScaled.SetSize(nw, nh);
   if TheScaled.Canvas.BeginScene() then
   begin
+    TheScaled.Canvas.Clear(0);
     TheScaled.Canvas.DrawBitmap(TheSource, r, rDst, 1, False);
     TheScaled.Canvas.EndScene;
     StopWatch.Stop;

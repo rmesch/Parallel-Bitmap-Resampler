@@ -3,8 +3,10 @@ program ZoomPan;
 uses
   Vcl.Forms,
   uZoomPanMain in 'uZoomPanMain.pas' {ZoomPanMain},
-  uTools in 'uTools.pas',
-  uScale in '..\Resampler\uScale.pas';
+  uScale in '..\..\Resampler\uScale.pas',
+  uScaleCommon in '..\..\Resampler\uScaleCommon.pas',
+  uTestBitmap in '..\..\Utilities\uTestBitmap.pas',
+  uTools in '..\..\Utilities\UtilitiesVCL\uTools.pas';
 
 {$R *.res}
 
