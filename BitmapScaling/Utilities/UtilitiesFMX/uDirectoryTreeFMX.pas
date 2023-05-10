@@ -20,6 +20,7 @@ type
     FullPath: string;
     HasEnoughSubnodes: Boolean;
   end;
+  PNodeData=^TNodeData;
 
   TDirectoryTree = class(TTreeView)
   private

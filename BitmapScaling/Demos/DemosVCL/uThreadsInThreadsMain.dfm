@@ -137,8 +137,6 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     TabOrder = 4
     OnMouseWheel = ThumbViewMouseWheel
     OnResize = ThumbViewResize
-    ExplicitLeft = 189
-    ExplicitWidth = 427
   end
   object ImageCollection1: TImageCollection
     Images = <

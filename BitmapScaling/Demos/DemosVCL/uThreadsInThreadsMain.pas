@@ -21,11 +21,10 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Grids,
   Vcl.StdCtrls, Vcl.FileCtrl, Vcl.ExtCtrls,
   System.Generics.Collections, System.SyncObjs, System.Diagnostics,
-  //You now need to put uScale and uScaleCommon into the uses clause
+  // You now need to put uScale and uScaleCommon into the uses clause
   uScale, uScaleCommon, uDirectoryTree,
   System.ImageList, Vcl.ImgList, Vcl.VirtualImageList,
   Vcl.BaseImageCollection, Vcl.ImageCollection, Vcl.ComCtrls;
-
 
 const
   MsgUpdate = WM_user + 1;
@@ -121,7 +120,7 @@ type
   private
     Thumblist: TThumblist;
     ThumbsChanging: boolean;
-    CurDirectory: string;
+    CurDirectory, Rootfolder: string;
     DirectoryTree: TDirectoryTree;
     TimeLoad, TimeResample: integer;
     MakeThumbsTime: TStopWatch;
@@ -139,12 +138,12 @@ type
     procedure MakeNewThumbs;
 
     // message handler for the Done-messages sent by the threads.
-    procedure ThreadDone(var msg: TMessage); message MsgThreadDone;
+    procedure ThreadDone(var Msg: TMessage); message MsgThreadDone;
 
-    //Message handler for the Update-messages sent by the threads.
+    // Message handler for the Update-messages sent by the threads.
     procedure DoUpdate(var Msg: TMessage); message MsgUpdate;
 
-    //OnChange event-handler for the directory tree, which is created in OnCreate.
+    // OnChange event-handler for the directory tree, which is created in OnCreate.
     procedure DirectoryTreeChange(Sender: TObject; Node: TTreeNode);
     { Private-Deklarationen }
   public
@@ -171,8 +170,6 @@ uses System.IOUtils, Winapi.ShlWApi, System.Math,
 var
   ThreadWICLower, ThreadWICUpper: TWICImage;
 
-
-
 procedure TThreadsInThreadsMain.DoUpdate(var Msg: TMessage);
 var
   i: integer;
@@ -194,32 +191,6 @@ begin
   MakeNewThumbs;
 end;
 
-//procedure TThreadsInThreadsMain.GetDirectories(Tree: TTreeView; Directory: string; Item: TTreeNode; IncludeFiles: Boolean);
-//var
-//  SearchRec: TSearchRec;
-//  ItemTemp: TTreeNode;
-//begin
-//  Tree.Items.BeginUpdate;
-//  if Directory[Length(Directory)] <> '\' then Directory := Directory + '\';
-//  if FindFirst(Directory + '*.*', faDirectory, SearchRec) = 0 then
-//  begin
-//    repeat
-//      if (SearchRec.Attr and faDirectory = faDirectory) and (SearchRec.Name[1] <> '.') then
-//      begin
-//        if (SearchRec.Attr and faDirectory > 0) then
-//          Item := Tree.Items.AddChild(Item, SearchRec.Name);
-//        ItemTemp := Item.Parent;
-//        GetDirectories(Tree, Directory + SearchRec.Name, Item, IncludeFiles);
-//        Item := ItemTemp;
-//      end
-//      else if IncludeFiles then
-//        if SearchRec.Name[1] <> '.' then
-//          Tree.Items.AddChild(Item, SearchRec.Name);
-//    until FindNext(SearchRec) <> 0;
-//    FindClose(SearchRec);
-//  end;
-//  Tree.Items.EndUpdate;
-//end;
 
 procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
 begin
@@ -240,12 +211,13 @@ begin
   MakeThumbsThreadUpper.LowerHalf := false;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
   MakeThumbsTime := TStopWatch.Create;
-  DirectoryTree:=TDirectoryTree.Create(self);
-  DirectoryTree.Parent:=Panel2;
-  DirectoryTree.Align:=alClient;
-  DirectoryTree.Images:=VirtualImageList1;
-  DirectoryTree.OnChange:=DirectoryTreeChange;
+  DirectoryTree := TDirectoryTree.Create(self);
+  DirectoryTree.Parent := Panel2;
+  DirectoryTree.Align := alClient;
+  DirectoryTree.Images := VirtualImageList1;
+  DirectoryTree.OnChange := DirectoryTreeChange;
   DirectoryTree.NewRootFolder(TPath.GetPicturesPath);
+  Rootfolder := TPath.GetPicturesPath;
 end;
 
 procedure TThreadsInThreadsMain.FormDestroy(Sender: TObject);
@@ -290,7 +262,7 @@ begin
   if Thumblist.ThumbCount > 2000 then
   begin
     ShowMessage('Too many pictures in folder!');
-    Thumblist.ThumbCount:=0;
+    Thumblist.ThumbCount := 0;
     MakeThumbsThreadLower.Ready.SetEvent;
     MakeThumbsThreadUpper.Ready.SetEvent;
     exit;
@@ -319,17 +291,20 @@ end;
 procedure TThreadsInThreadsMain.NewRootClick(Sender: TObject);
 begin
   if not OD.Execute(self.Handle) then
-  exit;
-  if System.SysUtils.DirectoryExists(OD.FileName) then
-  DirectoryTree.NewRootFolder(OD.FileName);
+    exit;
+  if System.SysUtils.DirectoryExists(OD.Filename) then
+  begin
+    Rootfolder := OD.Filename;
+    DirectoryTree.NewRootFolder(Rootfolder);
+  end;
 end;
 
-procedure TThreadsInThreadsMain.ThreadDone(var msg: TMessage);
+procedure TThreadsInThreadsMain.ThreadDone(var Msg: TMessage);
 var
   DoneAll: boolean;
   PercLoad, PercResample, Total: integer;
 begin
-  with TMakeThumbsThread(msg.WParam) do
+  with TMakeThumbsThread(Msg.WParam) do
   begin
     TimeLoad := TimeLoad + ElapsedLoad;
     TimeResample := TimeResample + ElapsedResample;
@@ -490,14 +465,15 @@ end;
 procedure TThreadsInThreadsMain.DirectoryTreeChange(Sender: TObject;
   Node: TTreeNode);
 begin
-  if (csReading in ComponentState) or (csLoading in ComponentState) or (csDestroying in ComponentState) then
-  exit;
+  if (csReading in ComponentState) or (csLoading in ComponentState) or
+    (csDestroying in ComponentState) then
+    exit;
   if ThumbsChanging then
-  exit;
-  ThumbsChanging:=true;
-  CurDirectory:=DirectoryTree.GetFullFolderName(DirectoryTree.Selected);
+    exit;
+  ThumbsChanging := true;
+  CurDirectory := DirectoryTree.GetFullFolderName(DirectoryTree.Selected);
   MakeNewThumbs;
-  ThumbsChanging:=false;
+  ThumbsChanging := false;
 end;
 
 { TThumblist }
@@ -562,9 +538,9 @@ begin
       end;
       MaskPos := SepPos;
     end;
-    if sl.Count>2000 then
+    if sl.Count > 2000 then
     begin
-      ThumbCount:=sl.Count;
+      ThumbCount := sl.Count;
       exit;
     end;
     // Natural sorting order, e.g. '7' '8' '9' '10'
@@ -833,7 +809,7 @@ begin
     ElapsedLoad := StopLoadFromFile.ElapsedMilliseconds;
     ElapsedResample := StopResample.ElapsedMilliseconds;
     Working := false;
-    PostMessage(MessageHandle,MsgThreadDone,NativeUint(self),0)
+    PostMessage(MessageHandle, MsgThreadDone, NativeUint(self), 0)
   end;
 end;
 

@@ -150,7 +150,7 @@ const
   /// <summary> Initializes the default resampling thread pool. If already initialized, it does nothing. If not called, the default pool is initialized at the first use of a parallel procedure, causing a delay. </summary>
 procedure InitDefaultResamplingThreads;
 
-/// <summary> Frees the default resampling threads. If they are initialized and not finalized the Finalization of uScale will do it. </summary>
+/// <summary> Frees the default resampling threads. If they are initialized and not finalized the Finalization of uScale(FMX) will do it. </summary>
 procedure FinalizeDefaultResamplingThreads;
 
 procedure ProcessRow(y: integer; CacheStart: PBGRAInt;
@@ -712,7 +712,7 @@ procedure TResamplingThreadPool.Finalize;
 begin
   if not Initialized then
     exit;
-  for var i: integer := 0 to Length(ResamplingThreads) - 1 do
+  for var i: integer := 0 to Length(fResamplingThreads) - 1 do
   begin
     fResamplingThreads[i].Terminate;
     fResamplingThreads[i].Wakeup.SetEvent;
@@ -744,7 +744,7 @@ end;
 
 procedure InitDefaultResamplingThreads;
 begin
-  if _DefaultThreadPool.Initialized then
+  if _DefaultThreadPool.fInitialized then
     exit;
   // creating more threads than processors present does not seem to
   // speed up anything.
@@ -754,7 +754,7 @@ end;
 
 procedure FinalizeDefaultResamplingThreads;
 begin
-  if not _DefaultThreadPool.Initialized then
+  if not _DefaultThreadPool.fInitialized then
     exit;
   _DefaultThreadPool.Finalize;
 end;
