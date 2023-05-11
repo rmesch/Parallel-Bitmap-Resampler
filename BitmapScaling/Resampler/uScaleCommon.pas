@@ -100,6 +100,12 @@ type
 
   PResamplingThreadPool = ^TResamplingThreadPool;
 
+  TBGRA = record
+    b, g, r, a: byte;
+  end;
+
+  PBGRA = ^TBGRA;
+
   TBGRAInt = record
     b, g, r, a: integer;
   end;
@@ -154,7 +160,7 @@ procedure InitDefaultResamplingThreads;
 procedure FinalizeDefaultResamplingThreads;
 
 procedure ProcessRow(y: integer; CacheStart: PBGRAInt;
-  const RTS: TResamplingThreadSetup; AlphaCombineMode: TAlphaCombineMode);
+  const RTS: TResamplingThreadSetup; AlphaCombineMode: TAlphaCombineMode); inline;
 
 implementation
 
@@ -371,13 +377,7 @@ begin
   end; { for x }
 end;
 
-type
 
-  TBGRA = record
-    b, g, r, a: byte;
-  end;
-
-  PBGRA = ^TBGRA;
 
 procedure Combine(const ps: PBGRA; const Weight: integer; const Cache: PBGRAInt;
   const acm: TAlphaCombineMode); inline;
@@ -506,7 +506,7 @@ begin
 end;
 
 procedure ProcessRow(y: integer; CacheStart: PBGRAInt;
-  const RTS: TResamplingThreadSetup; AlphaCombineMode: TAlphaCombineMode);
+  const RTS: TResamplingThreadSetup; AlphaCombineMode: TAlphaCombineMode); inline;
 var
   ps, pT: PBGRA;
   rs, rT: PByte;

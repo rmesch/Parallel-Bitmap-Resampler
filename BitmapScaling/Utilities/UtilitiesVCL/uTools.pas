@@ -1,6 +1,6 @@
 unit uTools;
-// contains some helper routines for loading image formats into a TBitmap,
-// utilities to modify the alpha-channel and a class to generate nasty test-bitmaps.
+// contains some helper routines for loading image formats into a TBitmap and
+// utilities to modify the alpha-channel.
 
 interface
 

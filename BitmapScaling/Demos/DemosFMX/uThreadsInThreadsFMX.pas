@@ -539,8 +539,6 @@ begin
           h := round(h * SceneScale);
           tm := TBitmap.Create;
 
-          // Resample setting highest quality (Lanczos).
-
           acm := amIndependent;
 
           r := RectF(0, 0, bm.Width, bm.Height);
@@ -555,13 +553,14 @@ begin
                   tm.Canvas.EndScene;
                 end;
               end;
+            // Resample setting bicubic quality, better quality than TCanvas.DrawBitmap
             3:
-              ZoomResample(w, h, bm, tm, r, cfLanczos, 0, acm);
+              ZoomResample(w, h, bm, tm, r, cfBicubic, 0, acm);
             1:
-              ZoomResampleParallelThreads(w, h, bm, tm, r, cfLanczos, 0, acm,
+              ZoomResampleParallelThreads(w, h, bm, tm, r, cfBicubic, 0, acm,
                 fThreadpool);
             2:
-              ZoomResampleParallelTasks(w, h, bm, tm, r, cfLanczos, 0, acm);
+              ZoomResampleParallelTasks(w, h, bm, tm, r, cfBicubic, 0, acm);
           end;
           fThumblist.DataList[i].Bitmap := tm;
           // fThumblist will free it

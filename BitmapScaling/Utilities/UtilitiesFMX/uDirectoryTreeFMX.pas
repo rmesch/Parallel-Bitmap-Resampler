@@ -184,6 +184,7 @@ begin
     EndUpdate;
   end;
   Root.Expand;
+  Root.Select;
 end;
 
 function TDirectoryTree.GetFullFolderName(aItem: TTreeViewItem): string;

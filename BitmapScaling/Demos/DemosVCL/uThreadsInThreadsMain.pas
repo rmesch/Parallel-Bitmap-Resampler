@@ -196,9 +196,9 @@ procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
 begin
   // leave 2 processors for the MakeThumbsThreads (seems better)
   ThreadpoolLower.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
-    tpHigher);
+    tpHighest);
   ThreadpoolUpper.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
-    tpHigher);
+    tpHighest);
   // We don't initialize the default threadpool.
   // It will be initialized on demand when showing the first picture.
   // InitDefaultResamplingThreads;
@@ -282,7 +282,6 @@ begin
   MakeThumbsThreadUpper.Transparency := (TransparencyGroup.ItemIndex > 0);
   MakeThumbsThreadUpper.ThreadingIndex := Threading.ItemIndex;
   MakeThumbsThreadUpper.MessageHandle := self.Handle;
-  DirectoryTree.SetFocus;
   MakeThumbsTime.Start;
   MakeThumbsThreadLower.Wakeup.SetEvent;
   MakeThumbsThreadUpper.Wakeup.SetEvent;
@@ -331,6 +330,7 @@ begin
       ToString + ' ms');
     Memo1.Lines.Add('Load and decode: ' + PercLoad.ToString + ' %');
     Memo1.Lines.Add('Resample: ' + PercResample.ToString + ' %');
+    DirectoryTree.SetFocus;
   end;
 
 end;

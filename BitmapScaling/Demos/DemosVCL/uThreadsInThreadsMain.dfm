@@ -18,7 +18,7 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
   OnShow = FormActivate
   TextHeight = 13
   object Splitter1: TSplitter
-    Left = 145
+    Left = 169
     Top = 100
     Width = 4
     Height = 373
@@ -65,7 +65,7 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
   object Panel2: TPanel
     Left = 0
     Top = 100
-    Width = 145
+    Width = 169
     Height = 373
     Align = alLeft
     Caption = 'Panel2'
@@ -125,9 +125,9 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     end
   end
   object ThumbView: TScrollBox
-    Left = 149
+    Left = 173
     Top = 100
-    Width = 473
+    Width = 449
     Height = 373
     HorzScrollBar.Tracking = True
     VertScrollBar.Tracking = True
@@ -137,6 +137,8 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     TabOrder = 4
     OnMouseWheel = ThumbViewMouseWheel
     OnResize = ThumbViewResize
+    ExplicitLeft = 149
+    ExplicitWidth = 473
   end
   object ImageCollection1: TImageCollection
     Images = <
