@@ -16,3 +16,5 @@ Usage:
        The usage of the resampling-routines is explained in uScaleFMX.pas. 
        For some of the types used, see uScaleCommon.pas.
        Try the demos in Demos\DemosFMX
+
+My conclusion on the version for FMX: It was fun to make the parallel resampling work for FMX, and I learned quite a bit about FMX (though I'm probably still using it too much in the VCL-way). *But* I would probably not use it myself in an FMX-application. Though the resampling quality is better, the difference is almost unnoticeable in most use cases, and the speed of the GPU can't be matched by anything using the CPU. And to make the resampler truly cross-platform would be a lot of work. So I'll probably leave the FMX-version in its present state. My next project will be using D2D1 under the VCL-framework.

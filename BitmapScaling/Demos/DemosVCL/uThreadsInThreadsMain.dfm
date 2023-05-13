@@ -116,12 +116,27 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     end
     object NewRoot: TButton
       Left = 4
-      Top = 16
+      Top = 17
       Width = 97
       Height = 25
       Caption = 'New Root Folder'
       TabOrder = 2
       OnClick = NewRootClick
+    end
+    object ThumbSize: TComboBox
+      Left = 169
+      Top = 17
+      Width = 145
+      Height = 21
+      Style = csDropDownList
+      ItemIndex = 1
+      TabOrder = 3
+      Text = 'Medium thumbs'
+      OnChange = ThumbSizeChange
+      Items.Strings = (
+        'Small thumbs'
+        'Medium thumbs'
+        'Large thumbs')
     end
   end
   object ThumbView: TScrollBox
@@ -137,8 +152,6 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     TabOrder = 4
     OnMouseWheel = ThumbViewMouseWheel
     OnResize = ThumbViewResize
-    ExplicitLeft = 149
-    ExplicitWidth = 473
   end
   object ImageCollection1: TImageCollection
     Images = <

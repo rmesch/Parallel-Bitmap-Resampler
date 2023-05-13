@@ -18,6 +18,9 @@
         <Projects Include="DemosFMX\ThreadsInThreadsFMX.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="DemosFMX\ZoomPanFMX.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -71,14 +74,23 @@
     <Target Name="ThreadsInThreadsFMX:Make">
         <MSBuild Projects="DemosFMX\ThreadsInThreadsFMX.dproj" Targets="Make"/>
     </Target>
+    <Target Name="ZoomPanFMX">
+        <MSBuild Projects="DemosFMX\ZoomPanFMX.dproj"/>
+    </Target>
+    <Target Name="ZoomPanFMX:Clean">
+        <MSBuild Projects="DemosFMX\ZoomPanFMX.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="ZoomPanFMX:Make">
+        <MSBuild Projects="DemosFMX\ZoomPanFMX.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="DemoScale;ThreadsInThreads;ZoomPan;DemoScaleFMX;ThreadsInThreadsFMX"/>
+        <CallTarget Targets="DemoScale;ThreadsInThreads;ZoomPan;DemoScaleFMX;ThreadsInThreadsFMX;ZoomPanFMX"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="DemoScale:Clean;ThreadsInThreads:Clean;ZoomPan:Clean;DemoScaleFMX:Clean;ThreadsInThreadsFMX:Clean"/>
+        <CallTarget Targets="DemoScale:Clean;ThreadsInThreads:Clean;ZoomPan:Clean;DemoScaleFMX:Clean;ThreadsInThreadsFMX:Clean;ZoomPanFMX:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="DemoScale:Make;ThreadsInThreads:Make;ZoomPan:Make;DemoScaleFMX:Make;ThreadsInThreadsFMX:Make"/>
+        <CallTarget Targets="DemoScale:Make;ThreadsInThreads:Make;ZoomPan:Make;DemoScaleFMX:Make;ThreadsInThreadsFMX:Make;ZoomPanFMX:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

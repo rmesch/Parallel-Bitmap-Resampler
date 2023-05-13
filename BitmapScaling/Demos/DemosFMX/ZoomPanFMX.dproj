@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{9C573E2B-BD0A-47A7-9817-DD5C2C56A60F}</ProjectGuid>
+        <ProjectGuid>{A235DC58-34D8-46F7-A808-7244102DCF07}</ProjectGuid>
         <ProjectVersion>19.5</ProjectVersion>
         <FrameworkType>FMX</FrameworkType>
         <Base>True</Base>
@@ -8,7 +8,7 @@
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
-        <MainSource>ThreadsInThreadsFMX.dpr</MainSource>
+        <MainSource>ZoomPanFMX.dpr</MainSource>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -86,7 +86,7 @@
         <AUP_READ_PHONE_STATE>true</AUP_READ_PHONE_STATE>
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <Icns_MainIcns>$(BDS)\bin\delphi_PROJECTICNS.icns</Icns_MainIcns>
-        <SanitizedProjectName>ThreadsInThreadsFMX</SanitizedProjectName>
+        <SanitizedProjectName>ZoomPanFMX</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Android)'!=''">
         <DCC_UsePackage>soapserver;IndySystem;fmx;DbxCommonDriver;bindengine;IndyIPCommon;FireDACCommonDriver;IndyProtocols;IndyIPClient;dbxcds;bindcomp;FireDACCommon;IndyCore;RESTBackendComponents;bindcompfmx;bindcompdbx;rtl;FireDACSqliteDriver;DbxClientDriver;RESTComponents;soapmidas;DBXSqliteDriver;IndyIPServer;dsnapxml;fmxFireDAC;dbexpress;inet;FireDAC;fmxase;xmlrtl;tethering;dbrtl;dsnap;CloudService;CustomIPTransport;soaprtl;DBXInterBaseDriver;FireDACIBDriver;$(DCC_UsePackage)</DCC_UsePackage>
@@ -167,9 +167,6 @@
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
-        <DCC_SYMBOL_PLATFORM>false</DCC_SYMBOL_PLATFORM>
-        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
@@ -190,17 +187,14 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="uThreadsInThreadsFMX.pas">
-            <Form>ThreadsInThreadsFMXMain</Form>
+        <DCCReference Include="uZoomPanFMXMain.pas">
+            <Form>ZoomPanFMXMain</Form>
             <FormType>fmx</FormType>
         </DCCReference>
-        <DCCReference Include="uShowPictureFMX.pas">
-            <Form>ShowPicture</Form>
-            <FormType>fmx</FormType>
-        </DCCReference>
+        <DCCReference Include="..\..\Utilities\uTestBitmap.pas"/>
+        <DCCReference Include="..\..\Utilities\UtilitiesFMX\uToolsFMX.pas"/>
         <DCCReference Include="..\..\Resampler\uScaleCommon.pas"/>
         <DCCReference Include="..\..\Resampler\uScaleFMX.pas"/>
-        <DCCReference Include="..\..\Utilities\UtilitiesFMX\uDirectoryTreeFMX.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -219,12 +213,8 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">ThreadsInThreadsFMX.dpr</Source>
+                    <Source Name="MainSource">ZoomPanFMX.dpr</Source>
                 </Source>
-                <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k280.bpl">Microsoft Office 2000 Beispiele für gekapselte Komponenten für Automatisierungsserver</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp280.bpl">Microsoft Office XP Beispiele für gekapselte Komponenten für Automation Server</Excluded_Packages>
-                </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="4">
                 <DeployFile LocalName="$(BDS)\Redist\iossimulator\libcgunwind.1.0.dylib" Class="DependencyModule">
@@ -242,9 +232,9 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Debug\ThreadsInThreadsFMX.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="Win32\Debug\ZoomPanFMX.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>ThreadsInThreadsFMX.exe</RemoteName>
+                        <RemoteName>ZoomPanFMX.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

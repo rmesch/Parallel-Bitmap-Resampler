@@ -3,7 +3,7 @@ program ThreadsInThreadsFMX;
 uses
   System.StartUpCopy,
   FMX.Forms,
-  uThreadsInThreadsFMX in 'uThreadsInThreadsFMX.pas' {ThreadsInThreadsMain},
+  uThreadsInThreadsFMX in 'uThreadsInThreadsFMX.pas' {ThreadsInThreadsFMXMain},
   uShowPictureFMX in 'uShowPictureFMX.pas' {ShowPicture},
   uScaleCommon in '..\..\Resampler\uScaleCommon.pas',
   uScaleFMX in '..\..\Resampler\uScaleFMX.pas',
@@ -13,7 +13,7 @@ uses
 
 begin
   Application.Initialize;
-  Application.CreateForm(TThreadsInThreadsMain, ThreadsInThreadsMain);
+  Application.CreateForm(TThreadsInThreadsFMXMain, ThreadsInThreadsFMXMain);
   Application.CreateForm(TShowPicture, ShowPicture);
   Application.Run;
 end.

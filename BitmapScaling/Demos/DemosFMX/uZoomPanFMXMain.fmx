@@ -1,0 +1,205 @@
+object ZoomPanFMXMain: TZoomPanFMXMain
+  Left = 0
+  Top = 0
+  Caption = 'Form2'
+  ClientHeight = 480
+  ClientWidth = 780
+  FormFactor.Width = 320
+  FormFactor.Height = 480
+  FormFactor.Devices = [Desktop]
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  DesignerMasterStyle = 0
+  object Panel1: TPanel
+    Align = Left
+    Size.Width = 297.000000000000000000
+    Size.Height = 480.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 1
+    object Panel3: TPanel
+      Align = Top
+      Size.Width = 297.000000000000000000
+      Size.Height = 73.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      object GroupBox1: TGroupBox
+        Align = MostLeft
+        Size.Width = 137.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'Test Bitmap'
+        TabOrder = 1
+        object Make: TButton
+          Position.X = 8.000000000000000000
+          Position.Y = 27.000000000000000000
+          TabOrder = 38
+          Text = 'Make'
+          OnClick = MakeClick
+        end
+      end
+      object GroupBox2: TGroupBox
+        Align = Client
+        Size.Width = 160.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'Image from File'
+        TabOrder = 2
+        object Load: TButton
+          Position.X = 8.000000000000000000
+          Position.Y = 27.000000000000000000
+          TabOrder = 38
+          Text = 'Load'
+          OnClick = LoadClick
+        end
+      end
+    end
+    object ScrollBox1: TScrollBox
+      Align = Client
+      Size.Width = 297.000000000000000000
+      Size.Height = 407.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 2
+      Viewport.Width = 297.000000000000000000
+      Viewport.Height = 407.000000000000000000
+      object Image1: TImage
+        MultiResBitmap = <
+          item
+          end>
+        WrapMode = Original
+      end
+    end
+  end
+  object Splitter1: TSplitter
+    Align = Left
+    Cursor = crHSplit
+    MinSize = 20.000000000000000000
+    Position.X = 297.000000000000000000
+    Size.Width = 8.000000000000000000
+    Size.Height = 480.000000000000000000
+    Size.PlatformDefault = False
+  end
+  object Panel2: TPanel
+    Align = Client
+    Size.Width = 475.000000000000000000
+    Size.Height = 480.000000000000000000
+    Size.PlatformDefault = False
+    TabOrder = 3
+    object Panel5: TPanel
+      Align = MostTop
+      Size.Width = 475.000000000000000000
+      Size.Height = 73.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      object GroupBox3: TGroupBox
+        Align = Client
+        Size.Width = 475.000000000000000000
+        Size.Height = 73.000000000000000000
+        Size.PlatformDefault = False
+        Text = 'Animation'
+        TabOrder = 0
+        object Heights: TComboBox
+          Position.X = 8.000000000000000000
+          Position.Y = 43.000000000000000000
+          TabOrder = 38
+          OnChange = HeightsChange
+        end
+        object Start: TButton
+          Position.X = 376.000000000000000000
+          Position.Y = 43.000000000000000000
+          TabOrder = 39
+          Text = 'Start'
+          OnClick = StartClick
+        end
+        object Filter: TComboBox
+          Items.Strings = (
+            'Box'
+            'Bilinear'
+            'Bicubic'
+            'Lanczos')
+          ItemIndex = 1
+          Position.X = 128.000000000000000000
+          Position.Y = 43.000000000000000000
+          TabOrder = 40
+        end
+        object Scaling: TComboBox
+          Items.Strings = (
+            'uScaleFMX'
+            'FMX-DrawBitmap')
+          ItemIndex = 0
+          Position.X = 248.000000000000000000
+          Position.Y = 43.000000000000000000
+          TabOrder = 41
+        end
+        object Label1: TLabel
+          Position.X = 8.000000000000000000
+          Position.Y = 24.000000000000000000
+          Size.Width = 94.000000000000000000
+          Size.Height = 17.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Height'
+          TabOrder = 44
+        end
+        object Label2: TLabel
+          Position.X = 128.000000000000000000
+          Position.Y = 24.000000000000000000
+          Size.Width = 94.000000000000000000
+          Size.Height = 17.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Filter'
+          TabOrder = 43
+        end
+        object Label3: TLabel
+          Position.X = 246.000000000000000000
+          Position.Y = 24.000000000000000000
+          Size.Width = 94.000000000000000000
+          Size.Height = 17.000000000000000000
+          Size.PlatformDefault = False
+          Text = 'Resampler'
+          TabOrder = 42
+        end
+      end
+    end
+    object Panel6: TPanel
+      Align = MostBottom
+      Position.Y = 440.000000000000000000
+      Size.Width = 475.000000000000000000
+      Size.Height = 40.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 1
+      object FPS: TLabel
+        Position.X = 16.000000000000000000
+        Position.Y = 8.000000000000000000
+        Text = 'FPS'
+        TabOrder = 0
+      end
+      object Label4: TLabel
+        Align = Right
+        Position.X = 112.000000000000000000
+        Size.Width = 363.000000000000000000
+        Size.Height = 40.000000000000000000
+        Size.PlatformDefault = False
+        Text = 
+          'The resampler used by default in fmx generates a few more artefa' +
+          'cts, but in a normal application those are hardly noticeable.'
+        TabOrder = 2
+      end
+    end
+    object MovieRect: TRectangle
+      Align = Client
+      Fill.Color = xFF2A393A
+      Size.Width = 475.000000000000000000
+      Size.Height = 367.000000000000000000
+      Size.PlatformDefault = False
+      OnResize = MovieRectResize
+      object MovieBox: TPaintBox
+        Position.X = 160.000000000000000000
+        Position.Y = 168.000000000000000000
+        OnPaint = MovieBoxPaint
+      end
+    end
+  end
+  object OD: TOpenDialog
+    Left = 24
+    Top = 145
+  end
+end

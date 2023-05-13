@@ -106,6 +106,7 @@ type
     NewRoot: TButton;
     OD: TFileOpenDialog;
     Label1: TLabel;
+    ThumbSize: TComboBox;
     procedure FormCreate(Sender: TObject);
     procedure ThumbViewResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -117,6 +118,7 @@ type
       OldDPI, NewDPI: integer);
     procedure ThreadingClick(Sender: TObject);
     procedure NewRootClick(Sender: TObject);
+    procedure ThumbSizeChange(Sender: TObject);
   private
     Thumblist: TThumblist;
     ThumbsChanging: boolean;
@@ -191,7 +193,6 @@ begin
   MakeNewThumbs;
 end;
 
-
 procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
 begin
   // leave 2 processors for the MakeThumbsThreads (seems better)
@@ -239,6 +240,9 @@ begin
   // FinalizeDefaultResamplingThreads
 end;
 
+const
+  ThumbSizes: array [0 .. 2] of integer = (120, 180, 240);
+
 procedure TThreadsInThreadsMain.MakeNewThumbs;
 begin
   if MakeThumbsThreadLower.Working then
@@ -253,9 +257,9 @@ begin
   MakeThumbsThreadLower.Ready.ResetEvent;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
   MakeThumbsThreadUpper.Ready.ResetEvent;
-  Thumblist.ThumbSize := MulDiv(screen.width div 24, Monitor.PixelsPerInch, 96);
-  Thumblist.DetailsSize := MulDiv(screen.Height div 42,
+  Thumblist.ThumbSize := MulDiv(ThumbSizes[ThumbSize.ItemIndex],
     Monitor.PixelsPerInch, 96);
+  Thumblist.DetailsSize := Abs(Font.Height)*2+MulDiv(10,Monitor.PixelsPerInch,96);
   Thumblist.ThumbParent := ThumbView;
   Thumblist.MakeLists(CurDirectory, '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
     ThumbClick);
@@ -441,6 +445,11 @@ begin
     bm.Free;
   end;
   ShowPicture.Caption := 'Shows Picture';
+end;
+
+procedure TThreadsInThreadsMain.ThumbSizeChange(Sender: TObject);
+begin
+  MakeNewThumbs;
 end;
 
 procedure TThreadsInThreadsMain.ThumbViewMouseWheel(Sender: TObject;

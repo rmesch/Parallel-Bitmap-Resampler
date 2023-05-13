@@ -1,3 +1,6 @@
+2023-5-13
+  Added Zoom/Pan demo. Thumb size in ThreadsInThreads can be changed (small, medium, large).
+
 2023-5-10
   Moved code common to FMX and VCL into a new unit uScaleCommon. This unit needs to be added to the uses-clause together with uScaleFMX. Folders BitmapScaling and BitmapScalingFMX have been merged into one.
   The parallel routines are now all threadsafe, if each thread uses a separate thread-pool. See ThreadsInThreadsFMX in 
@@ -8,7 +11,6 @@ Demos\DemosFMX
   More functionality in DemoScaleFMX: Alpha-combine-modes and zoom-tool.
 
 2023-5-3
-
   First (prototype) version of a port to FMX. 
   Supports Windows platform only, and the thread-pools have not been implemented yet,
 so the parallel-threads-routine cannot be used in threads.

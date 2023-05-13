@@ -1,9 +1,9 @@
 unit uThreadsInThreadsFMX;
+
 //
 // Important routines: TMakeThumbsThread.DoMakeThumbs,
 // TThreadsInThreadsMain.MakeNewThumbs, TThreadsInThreadsMain.ThumbClick.
 //
-
 interface
 
 uses
@@ -69,7 +69,7 @@ type
     destructor Destroy; override;
   end;
 
-  TThreadsInThreadsMain = class(TForm)
+  TThreadsInThreadsFMXMain = class(TForm)
     Panel1: TPanel;
     Panel2: TPanel;
     Panel3: TPanel;
@@ -83,6 +83,7 @@ type
     NewRoot: TButton;
     Label2: TLabel;
     Label3: TLabel;
+    ThumbSizeBox: TComboBox;
     procedure FormCreate(Sender: TObject);
     procedure DirectoryTreeChange(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -90,6 +91,7 @@ type
     procedure ThreadingChange(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure NewRootClick(Sender: TObject);
+    procedure ThumbSizeBoxChange(Sender: TObject);
   private
     ThumbList: TThumblist;
     CurDirectory: string;
@@ -108,7 +110,7 @@ type
   end;
 
 var
-  ThreadsInThreadsMain: TThreadsInThreadsMain;
+  ThreadsInThreadsFMXMain: TThreadsInThreadsFMXMain;
 
 implementation
 
@@ -116,7 +118,7 @@ implementation
 
 uses System.IOUtils, Winapi.ShlWApi, System.Math, uShowPictureFMX;
 
-procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.FormCreate(Sender: TObject);
 begin
   // leave 2 processors for the MakeThumbsThreads (seems better)
   ThreadPoolLower.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
@@ -142,7 +144,7 @@ begin
   DirectoryTree.NewRootFolder(TPath.GetPicturesPath);
 end;
 
-procedure TThreadsInThreadsMain.FormDestroy(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.FormDestroy(Sender: TObject);
 begin
   MakeThumbsThreadLower.DoAbort := true;
   MakeThumbsThreadUpper.DoAbort := true;
@@ -158,7 +160,7 @@ begin
   ThumbList.ClearThumbs;
 end;
 
-procedure TThreadsInThreadsMain.FormShow(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.FormShow(Sender: TObject);
 begin
   SetBounds(0, 0, round(Screen.Width / 2), round(Screen.Height));
   ShowPicture.Left := self.Width + 10;
@@ -167,9 +169,11 @@ begin
   ShowPicture.Height := self.Height div 2;
 end;
 
-procedure TThreadsInThreadsMain.MakeNewThumbs;
+const
+  ThumbSizes: array [0 .. 2] of integer = (120, 180, 240);
+
+procedure TThreadsInThreadsFMXMain.MakeNewThumbs;
 var
-  ScreenWidth: integer;
   ScreenDisplay: TDisplay;
 begin
   if MakeThumbsThreadLower.Working then
@@ -184,13 +188,11 @@ begin
   MakeThumbsThreadLower.Ready.ResetEvent;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
   MakeThumbsThreadUpper.Ready.ResetEvent;
-
   ScreenDisplay := Screen.DisplayFromForm(self);
   ScreenScale := ScreenDisplay.Scale;
   ThumbList.ScreenScale := ScreenScale;
-  ScreenWidth := ScreenDisplay.PhysicalBounds.Right;
-  ThumbList.ThumbSize := round(ScreenWidth / 22);
-  ThumbList.DetailsSize := round(ThumbList.ThumbSize / 3);
+  ThumbList.ThumbSize := ThumbSizes[ThumbSizeBox.ItemIndex];
+  ThumbList.DetailsSize := 46;
   ThumbList.ThumbParent := ThumbView;
   ThumbList.MakeLists(CurDirectory, '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
     ThumbClick);
@@ -201,17 +203,15 @@ begin
     MakeThumbsThreadUpper.Ready.SetEvent;
     exit;
   end;
-
   // make the thumb-bitmaps 2 threads
   MakeThumbsThreadLower.fThumblist := @ThumbList;
   MakeThumbsThreadLower.OnDone := ThreadDone;
   MakeThumbsThreadLower.ThreadingIndex := Threading.ItemIndex;
   MakeThumbsThreadLower.SceneScale := ScreenScale;
-
   MakeThumbsThreadUpper.fThumblist := @ThumbList;
   MakeThumbsThreadUpper.OnDone := ThreadDone;
   MakeThumbsThreadUpper.ThreadingIndex := Threading.ItemIndex;
-  MakeThumbsThreadUpper.SceneScale := ScreenScale;
+  MakeThumbsThreadUpper.SceneScale := ScreenScale; //so we know the absolute pixel size of the thumbs
   TimeLoad := 0;
   TimeResample := 0;
   MakeThumbsTime.Reset;
@@ -220,7 +220,7 @@ begin
   MakeThumbsThreadUpper.Wakeup.SetEvent;
 end;
 
-procedure TThreadsInThreadsMain.NewRootClick(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.NewRootClick(Sender: TObject);
 var
   LDirectory: String;
 begin
@@ -230,7 +230,7 @@ begin
   end;
 end;
 
-procedure TThreadsInThreadsMain.ThreadDone(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.ThreadDone(Sender: TObject);
 var
   DoneAll: boolean;
   PercLoad, PercResample, Total: integer;
@@ -263,15 +263,14 @@ begin
     Memo1.Lines.Add('Load and decode: ' + PercLoad.ToString + ' %');
     Memo1.Lines.Add('Resample: ' + PercResample.ToString + ' %');
   end;
-
 end;
 
-procedure TThreadsInThreadsMain.ThreadingChange(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.ThreadingChange(Sender: TObject);
 begin
   MakeNewThumbs;
 end;
 
-procedure TThreadsInThreadsMain.ThumbClick(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.ThumbClick(Sender: TObject);
 var
   i: integer;
 begin
@@ -280,12 +279,17 @@ begin
   ShowPicture.Image1.Bitmap.LoadFromFile(ThumbList.DataList[i].Filename);
 end;
 
-procedure TThreadsInThreadsMain.ThumbViewResize(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.ThumbSizeBoxChange(Sender: TObject);
+begin
+  MakeNewThumbs;
+end;
+
+procedure TThreadsInThreadsFMXMain.ThumbViewResize(Sender: TObject);
 begin
   ThumbList.RedisplayThumbs;
 end;
 
-procedure TThreadsInThreadsMain.DirectoryTreeChange(Sender: TObject);
+procedure TThreadsInThreadsFMXMain.DirectoryTreeChange(Sender: TObject);
 begin
   CurDirectory := DirectoryTree.GetFullFolderName
     (TTreeViewItem(DirectoryTree.Selected));
@@ -293,7 +297,6 @@ begin
 end;
 
 { TThumblist }
-
 procedure TThumblist.ClearThumbs;
 var
   i, imax: integer;
@@ -333,7 +336,6 @@ begin
     mask := aFileMask;
     MaskLen := Length(mask);
     MaskPos := 0;
-
     while MaskPos >= 0 do
     begin
       SepPos := Pos(';', mask, MaskPos + 1) - 1;
@@ -341,10 +343,8 @@ begin
         SearchStr := Copy(mask, MaskPos + 1, SepPos - MaskPos)
       else
         SearchStr := Copy(mask, MaskPos + 1, MaskLen);
-
       sl.AddStrings(TDirectory.GetFiles(PicPath, SearchStr,
         TSearchOption.soTopDirectoryOnly));
-
       if SepPos >= 0 then
       begin
         Inc(SepPos);
@@ -353,12 +353,9 @@ begin
       end;
       MaskPos := SepPos;
     end;
-
     // Natural sorting order, e.g. '7' '8' '9' '10'
     sl.CustomSort(LogicalCompare);
-
     SetLength(DataList, sl.Count);
-
     for i := 0 to sl.Count - 1 do
       DataList[i].Filename := sl.Strings[i];
   finally
@@ -375,7 +372,6 @@ begin
     TH.OnClick := aThumbClick;
     DataList[i].OrgSize := Point(0, 0);
   end;
-
   RedisplayThumbs;
   ThumbParent.Repaint;
 end;
@@ -441,7 +437,6 @@ begin
 end;
 
 { TThumbControl }
-
 procedure TThumbControl.Paint;
 begin
   inherited;
@@ -449,7 +444,6 @@ begin
 end;
 
 { TMakeThumbsThread }
-
 constructor TMakeThumbsThread.Create;
 begin
   inherited Create(false);
@@ -504,7 +498,6 @@ begin
       except
         WrongFormat := true;
       end;
-
       if WrongFormat then
         fThumblist.DataList[i].Bitmap := nil
         // not really necessary, it's nil to begin with
@@ -538,9 +531,7 @@ begin
           w := round(w * SceneScale);
           h := round(h * SceneScale);
           tm := TBitmap.Create;
-
           acm := amIndependent;
-
           r := RectF(0, 0, bm.Width, bm.Height);
           case ThreadingIndex of
             0:

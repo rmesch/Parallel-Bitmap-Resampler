@@ -76,8 +76,8 @@ uTools, uTestBitmap, Winapi.MMSystem;
 type
   // Defines a normalized zoom-zectangle [xcenter-radius,xcenter+radius]x[ycenter-radius,ycenter+radius]
   // as a sub-rectangle of [0,1]x[0,1]
-  // when multiplied by the width/height of an image it defines an aspect-preserving sub-rectangle of
-  // the image.
+  // when multiplied by the width/height of a bitmap it defines an aspect-preserving sub-rectangle of
+  // the bitmap.
   TZoomPan = record
     xcenter, ycenter, Radius: double;
   end;
