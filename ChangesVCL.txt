@@ -1,3 +1,5 @@
+2023-6-5
+  Added legacy version suitable for Delphi 2006 and up. Might work with lower versions by removing the ;inline directives.
 2023-5-13
   Thumb size in ThreadsInThreads can be changed (small, medium, large).
 
