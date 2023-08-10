@@ -1,6 +1,6 @@
 unit uDemoScaleMainLegacy;
 // Shows how to resample a source-bitmap to a target-bitmap using the
-// procedures in uScale with various settings.
+// procedures in uScaleLegacy with various settings.
 // Look at TDemoMainForm.DoScale to see how the procedures are used.
 
 interface
@@ -23,7 +23,6 @@ type
     BitmapSize: TComboBox;
     Label1: TLabel;
     MakeTestBitmap: TButton;
-    Image1: TImage;
     OriginalSize: TLabel;
     AlphaChannel: TRadioGroup;
     GroupBox2: TGroupBox;
@@ -46,9 +45,7 @@ type
     Splitter2: TSplitter;
     Panel9: TPanel;
     ScrollBox2: TScrollBox;
-    Image2: TImage;
     ScrollBox3: TScrollBox;
-    Image3: TImage;
     Panel6: TPanel;
     Time: TLabel;
     Panel10: TPanel;
@@ -65,9 +62,13 @@ type
     ZoomIn: TButton;
     ZoomOut: TButton;
     NoZoom: TButton;
+    SourceBox: TPaintBox;
+    TargetBox: TPaintBox;
+    HalftoneBox: TPaintBox;
+    Image1: TImage;
     procedure FormCreate(Sender: TObject);
     procedure MakeTestBitmapClick(Sender: TObject);
-    procedure ShowAlphaClick(Sender: TObject);
+    //procedure ShowAlphaClick(Sender: TObject);
     procedure AlphaChannelClick(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure WidthChange(Sender: TObject);
@@ -75,7 +76,7 @@ type
     procedure ResizeClick(Sender: TObject);
     procedure ThreadingChange(Sender: TObject);
     procedure LoadClick(Sender: TObject);
-    procedure ShowAlphaTargetClick(Sender: TObject);
+    //procedure ShowAlphaTargetClick(Sender: TObject);
     procedure Image1MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; x, Y: Integer);
     procedure Image1MouseUp(Sender: TObject; Button: TMouseButton;
@@ -84,7 +85,7 @@ type
       Shift: TShiftState; x, Y: Integer);
     procedure Image2MouseUp(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; x, Y: Integer);
-    procedure ShowAlphaWICClick(Sender: TObject);
+    //procedure ShowAlphaWICClick(Sender: TObject);
     procedure Image3MouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; x, Y: Integer);
     procedure Image3MouseUp(Sender: TObject; Button: TMouseButton;
@@ -97,8 +98,22 @@ type
     procedure ZoomInClick(Sender: TObject);
     procedure ZoomOutClick(Sender: TObject);
     procedure NoZoomClick(Sender: TObject);
+    procedure SourceBoxPaint(Sender: TObject);
+    procedure HalftoneBoxPaint(Sender: TObject);
   private
-    TheSource, TheOriginal, TheTarget, TheStrH: TBitmap;
+    //Original as loaded from file or created as test bitmap
+    TheOriginal,
+
+    //Original with modified alpha-channel. Source-bmp for rescaling.
+    TheSource,
+
+    //Target-bmps for rescaling
+    TheTarget, TheHalfTone,
+
+    //Bitmaps for display in the paintboxes.
+    //Depending on the settings they can be transparent or not,
+    //or have the alpha-channel pre-multiplied.
+    PicSource, PicTarget, PicHalfTone: TBitmap;
     Aspect: double;
     ShowAlpha, Transparency: Boolean;
     ZoomFact: Integer;
@@ -107,23 +122,25 @@ type
     //returns present system time in microseconds
     function TimeNow: int64; inline;
     procedure MakeTestBitmapAndRun;
-    procedure DisplaySource;
+    
     procedure MakeSourceAlpha;
     procedure UpdateSizes;
 
     // Most important routine to see how to use uScale
     procedure DoScale;
 
+    procedure DisplaySource;
     procedure DisplayTarget;
-    procedure DisplayStrH;
-    procedure Display(const bm: TBitmap; const im: TImage);
-    procedure DisplayAlpha(const bm: TBitmap; im: TImage);
-    procedure DisplayBGR(const bm: TBitmap; im: TImage);
+    procedure DisplayHalftone;
+    procedure Display(const bm: TBitmap; const bmPic: TBitmap; const PaintBox: TPaintBox);
+    procedure DisplayAlpha(const bm: TBitmap; const bmPic: TBitmap; const PaintBox: TPaintBox);
+    procedure DisplayBGR(const bm: TBitmap; const bmPic: TBitmap; const PaintBox: TPaintBox);
     procedure DisplayZooms;
     { Private-Deklarationen }
   public
     { Public-Deklarationen }
   end;
+
 
 var
   DemoMain: TDemoMain;
@@ -174,7 +191,10 @@ begin
   TheSource := TBitmap.Create;
   TheOriginal := TBitmap.Create;
   TheTarget := TBitmap.Create;
-  TheStrH := TBitmap.Create;
+  TheHalfTone := TBitmap.Create;
+  PicSource:=TBitmap.Create;
+  PicTarget:=TBitmap.Create;
+  PicHalfTone:=TBitmap.Create;
   InitDefaultResamplingThreads;
   if
   QueryPerformanceFrequency(Freq) then
@@ -191,13 +211,21 @@ begin
   TheSource.Free;
   TheOriginal.Free;
   TheTarget.Free;
-  TheStrH.Free;
+  TheHalfTone.Free;
+  PicSource.Free;
+  PicTarget.Free;
+  PicHalfTone.Free;
   uScaleCommonLegacy.FinalizeDefaultResamplingThreads;
 end;
 
 procedure TDemoMain.FormShow(Sender: TObject);
 begin
   MakeTestBitmapAndRun;
+end;
+
+procedure TDemoMain.HalftoneBoxPaint(Sender: TObject);
+begin
+  HalfToneBox.Canvas.Draw(0,0,PicHalftone);
 end;
 
 procedure TDemoMain.HeightChange(Sender: TObject);
@@ -211,13 +239,13 @@ end;
 procedure TDemoMain.Image1MouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
 var
-  im: TImage;
+  pb: TPaintBox;
 begin
-  im := TImage(Sender);
+   pb := TPaintBox(Sender);
   if Button = mbRight then
-    DisplayAlpha(TheSource, im)
+    DisplayAlpha(TheSource, PicSource,pb)
   else
-    DisplayBGR(TheSource, im);
+    DisplayBGR(TheSource, PicSource,pb);
 end;
 
 procedure TDemoMain.Image1MouseUp(Sender: TObject; Button: TMouseButton;
@@ -229,15 +257,15 @@ end;
 procedure TDemoMain.Image2MouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
 var
-  im: TImage;
+  pb: TPaintBox;
 begin
   if ZoomFact > 1 then
     exit;
-  im := TImage(Sender);
+  pb := TPaintBox(Sender);
   if Button = mbRight then
-    DisplayAlpha(TheTarget, im)
+    DisplayAlpha(TheTarget, PicTarget,pb)
   else
-    DisplayBGR(TheTarget, im);
+    DisplayBGR(TheTarget, PicTarget,pb);
 end;
 
 procedure TDemoMain.Image2MouseUp(Sender: TObject; Button: TMouseButton;
@@ -251,15 +279,15 @@ end;
 procedure TDemoMain.Image3MouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
 var
-  im: TImage;
+  pb: TPaintBox;
 begin
   if ZoomFact > 1 then
     exit;
-  im := TImage(Sender);
+  pb := TPaintBox(Sender);
   if Button = mbRight then
-    DisplayAlpha(TheStrH, im)
+    DisplayAlpha(TheHalftone, PicHalftone,pb)
   else
-    DisplayBGR(TheStrH, im);
+    DisplayBGR(TheHalftone, PicHalfTone,pb);
 end;
 
 procedure TDemoMain.Image3MouseUp(Sender: TObject; Button: TMouseButton;
@@ -267,7 +295,7 @@ procedure TDemoMain.Image3MouseUp(Sender: TObject; Button: TMouseButton;
 begin
   if ZoomFact > 1 then
     exit;
-  DisplayStrH;
+  DisplayHalfTone;
 end;
 
 procedure TDemoMain.LoadClick(Sender: TObject);
@@ -280,6 +308,7 @@ begin
   pic := TPicture.Create;
   try
     pic.LoadFromFile(OPD.Filename);
+    
     TheOriginal.Assign(pic.Graphic);
   finally
     pic.Free;
@@ -352,27 +381,27 @@ begin
   DoScale;
 end;
 
-procedure TDemoMain.DisplayAlpha(const bm: TBitmap; im: TImage);
+procedure TDemoMain.DisplayAlpha(const bm: TBitmap; const bmPic: TBitmap; const PaintBox: TPaintBox);
 var
   bmAlpha: TBitmap;
 begin
   bmAlpha := TBitmap.Create;
   try
     CopyAlphaChannel(bm, bmAlpha);
-    im.Picture := nil;
-    im.Invalidate;
-    im.Picture.Bitmap := bmAlpha;
+    bmPic.Assign(bmAlpha);
   finally
     bmAlpha.Free;
   end;
+  PaintBox.Invalidate;
 end;
 
-procedure TDemoMain.DisplayBGR(const bm: TBitmap; im: TImage);
+procedure TDemoMain.DisplayBGR(const bm: TBitmap; const bmPic: TBitmap; const PaintBox: TPaintBox);
 begin
-  im.Picture := nil;
-  im.Invalidate;
-  im.Picture.Bitmap := bm;
-  im.Invalidate;
+  bmPic.Assign(bm);
+  bmPic.Transparent:=false;
+  bmPic.PixelFormat:=pf24bit;
+  Paintbox.SetBounds(0,0,bmPic.Width,bmPic.Height);
+  PaintBox.Invalidate;
 end;
 
 procedure TDemoMain.ApplyClick(Sender: TObject);
@@ -380,37 +409,40 @@ begin
   DoScale;
 end;
 
-procedure TDemoMain.Display(const bm: TBitmap; const im: TImage);
+procedure TDemoMain.Display(const bm: TBitmap; const bmPic: TBitmap; const PaintBox: TPaintBox);
 begin
-  im.Picture := nil;
-  im.Invalidate;
-  im.Picture.Bitmap := bm;
-  im.Transparent := Transparency;
+  bmPic.Assign(bm);
   if ShowAlpha then
-    ApplyAlpha(im.Picture.Bitmap)
+  begin
+    ApplyAlpha(bmPic);
+  end
   else
-    SetOpaque(im.Picture.Bitmap);
+  if not Transparency then
 
-  im.Invalidate;
+    SetOpaque(bmPic);
+  PaintBox.SetBounds(0,0,bmPic.Width,bmPic.Height);
 end;
 
 procedure TDemoMain.DisplaySource;
 begin
-  Display(TheSource, Image1);
+  Display(TheSource, PicSource, SourceBox);
+  PicSource.Transparent:=Transparency;
+  SourceBox.Invalidate;
 end;
 
 procedure TDemoMain.DisplayTarget;
 begin
-  Display(TheTarget, Image2);
+  Display(TheTarget, PicTarget, TargetBox);
+  TargetBox.Invalidate;
 end;
 
-procedure TDemoMain.DisplayStrH;
+procedure TDemoMain.DisplayHalftone;
 begin
   //Stretch-Halftone erases the alpha-channel,
-  //so we only display RGB
-  Image3.Transparent := Transparency;
-
-  DisplayBGR(TheStrH, Image3);
+  //so we use draw for display
+  PicHalfTone.Assign(TheHalftone);
+  HalfToneBox.SetBounds(0,0,PicHalftone.Width,PicHalftone.Height);
+  HalfToneBox.Repaint;
 end;
 
 procedure TDemoMain.DisplayZooms;
@@ -421,16 +453,20 @@ begin
   if ZoomFact = 1 then
   begin
     DisplayTarget;
-    DisplayStrH;
+    DisplayHalftone;
     exit;
   end;
   zbm := TBitmap.Create;
   try
     try
       Magnify(TheTarget, zbm, ZoomFact);
-      Display(zbm, Image2);
-      Magnify(TheStrH, zbm, ZoomFact);
-      Display(zbm, Image3);
+      Display(zbm, picTarget, TargetBox);
+      picTarget.Transparent:=TheTarget.Transparent;
+      TargetBox.Invalidate;
+      Magnify(TheHalftone, zbm, ZoomFact);
+      Display(zbm, picHalftone, HalftoneBox);
+      picHalftone.Transparent:=TheHalftone.Transparent;
+      HalftoneBox.Invalidate;
     except
       ShowMessage('Zoom factor too large!');
       dec(ZoomFact);
@@ -459,7 +495,7 @@ begin
   Filter := FilterArray[Filters.ItemIndex];
   r := 0.01 * RadiusPercent.Value * DefaultRadius[Filter]; // Filter-Radius
   acm := TAlphaCombineMode(CombineModes.ItemIndex);
-  TheStrH.SetSize(0, 0);
+  TheHalftone.SetSize(0, 0);
   TheTarget.SetSize(0, 0); // erase previous alpha
   deltaw := (TheSource.Width - Width.Value) div Steps.Value;
   bm := TBitmap.Create;
@@ -500,6 +536,8 @@ begin
       if i = Steps.Value then
         TheTarget.Assign(bm);
     end; // for i
+    if acm = amTransparentColor then
+    TheTarget.Transparent:=true;
   finally
     bm.Free;
   end;
@@ -538,8 +576,10 @@ begin
         help.Free;
       end;
       if i = Steps.Value then
-        TheStrH.Assign(bm);
+        TheHalftone.Assign(bm);
     end;
+    if acm = amTransparentColor then
+    TheHalfTone.Transparent:=true;
   finally
     bm.Free;
   end;
@@ -600,19 +640,19 @@ begin
   Handled := true;
 end;
 
-procedure TDemoMain.ShowAlphaClick(Sender: TObject);
+procedure TDemoMain.SourceBoxPaint(Sender: TObject);
+var pb: TPaintBox;
+    pic: TBitmap;
 begin
-  DisplaySource;
-end;
-
-procedure TDemoMain.ShowAlphaTargetClick(Sender: TObject);
-begin
-  DisplayTarget;
-end;
-
-procedure TDemoMain.ShowAlphaWICClick(Sender: TObject);
-begin
-  DisplayStrH;
+  pb:=TPaintBox(sender);
+  if pb=SourceBox then
+  pic:=picSource
+  else
+  pic:=picTarget;
+  if transparency or (pic.PixelFormat<>pf32bit) or (not ShowAlpha) then
+  pb.Canvas.Draw(0,0,pic)
+  else
+  DrawAlphaBlended(pic,pb.Canvas,0,0);
 end;
 
 initialization

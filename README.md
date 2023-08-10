@@ -5,7 +5,7 @@
  
  !!! The FMX-version currently supports Windows32Bit and Windows64Bit only !!!
 
- *New:* Now contains a legacy-version suitable for Delphi 2006 and up. It is in the folder BitmapScaling_Legacy. Unit names have been appended by Legacy, otherwise usage is the same as explained below.
+ *New:* Now contains a legacy-version suitable for Delphi 2006 and up. It is in the folder BitmapScaling_Legacy. Unit names have been appended by Legacy, otherwise usage is the same as explained below. The demo requires Windows 2000 or higher to run.
 
 Usage:
 

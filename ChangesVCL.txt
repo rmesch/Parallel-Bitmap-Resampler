@@ -1,5 +1,9 @@
+2023-8-10
+  Legacy demo: Bitmaps with alpha-channel now display with per pixel opacity. For this a routine "DrawAlphaBlended" has been added to uToolsLegacy.pas in the utilities folder.
+
 2023-6-5
-  Added legacy version suitable for Delphi 2006 and up. Might work with lower versions by removing the ;inline directives.
+  Added legacy version suitable for Delphi 2006 and up. Might work with lower versions by removing the ;inline directives, preferrably then inlining those routines by hand, because the performance hit would be substantial otherwise.
+
 2023-5-13
   Thumb size in ThreadsInThreads can be changed (small, medium, large).
 

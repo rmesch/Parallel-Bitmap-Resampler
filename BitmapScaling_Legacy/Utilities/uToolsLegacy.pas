@@ -23,13 +23,32 @@ procedure MakeAlphaChannel(const bm: TBitmap);
 
 procedure ScaleStretchHalftone(NewWidth, NewHeight: integer;
   const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
+  
+/// <summary> Mulitplies BGR-values by alpha-values </summary>
+procedure ApplyAlpha(const bm: TBitmap);
 
-procedure ApplyAlpha(const bm: TBitmap);  
+/// <summary> Renders aBitmap to aCanvas starting at pos (x,y) using the alpha-channel for per-pixel-opacity
+/// The BGR-values of TBitmap must have been pre-multiplied by the alpha-values. See ApplyAlpha. </summary>
+procedure DrawAlphaBlended(const aBitmap: TBitmap; const aCanvas: TCanvas; x, y: integer);
 
 implementation
 
 uses Math, Classes, Forms;
 
+// Renders aBitmap to aCanvas starting at pos (x,y) using the alpha-channel for per-pixel-opacity
+procedure DrawAlphaBlended(const aBitmap: TBitmap; const aCanvas: TCanvas;
+  x, y: integer);
+var
+  BF: TBlendFunction;
+begin
+  BF.BlendOp := AC_SRC_OVER;
+  BF.BlendFlags := 0;
+  BF.SourceConstantAlpha := 255;
+  BF.AlphaFormat := AC_SRC_ALPHA;
+
+  Windows.AlphaBlend(aCanvas.Handle, x, y, aBitmap.Width, aBitmap.Height,
+    aBitmap.Canvas.Handle, 0, 0, aBitmap.Width, aBitmap.Height, BF);
+end;
 
 procedure ClearAlphaChannel(const bm: TBitmap);
 begin
@@ -214,9 +233,9 @@ begin
     pix := PRGBQuad(row);
     for x := 0 to w - 1 do
     begin
-      pix.rgbBlue:=pix.rgbBlue*pix.rgbReserved div 256;
-      pix.rgbGreen:=pix.rgbGreen*pix.rgbReserved div 256;
-      pix.rgbRed:=pix.rgbRed*pix.rgbReserved div 256;
+      pix.rgbBlue := pix.rgbBlue * pix.rgbReserved div 256;
+      pix.rgbGreen := pix.rgbGreen * pix.rgbReserved div 256;
+      pix.rgbRed := pix.rgbRed * pix.rgbReserved div 256;
       inc(pix);
     end;
     dec(row, bps);
