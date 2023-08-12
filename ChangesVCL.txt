@@ -1,3 +1,6 @@
+2023-8-12
+  Legacy demo: Fixed bug positioning the paintboxes when scrolled.
+
 2023-8-10
   Legacy demo: Bitmaps with alpha-channel now display with per pixel opacity. For this a routine "DrawAlphaBlended" has been added to uToolsLegacy.pas in the utilities folder.
 

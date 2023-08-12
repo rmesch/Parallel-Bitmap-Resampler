@@ -400,7 +400,8 @@ begin
   bmPic.Assign(bm);
   bmPic.Transparent:=false;
   bmPic.PixelFormat:=pf24bit;
-  Paintbox.SetBounds(0,0,bmPic.Width,bmPic.Height);
+  Paintbox.Width:=bmPic.Width;
+  Paintbox.Height:=bmPic.Height;
   PaintBox.Invalidate;
 end;
 
@@ -420,7 +421,8 @@ begin
   if not Transparency then
 
     SetOpaque(bmPic);
-  PaintBox.SetBounds(0,0,bmPic.Width,bmPic.Height);
+  Paintbox.Width:=bmPic.Width;
+  Paintbox.Height:=bmPic.Height;
 end;
 
 procedure TDemoMain.DisplaySource;
@@ -441,7 +443,8 @@ begin
   //Stretch-Halftone erases the alpha-channel,
   //so we use draw for display
   PicHalfTone.Assign(TheHalftone);
-  HalfToneBox.SetBounds(0,0,PicHalftone.Width,PicHalftone.Height);
+  Halftonebox.Width:=PicHalftone.Width;
+  Halftonebox.Height:=PicHalftone.Height;
   HalfToneBox.Repaint;
 end;
 
