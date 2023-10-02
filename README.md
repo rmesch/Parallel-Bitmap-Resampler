@@ -2,6 +2,7 @@
 
  High-quality and fast rescaling of VCL- and FMX-bitmaps, including parallel resampling routines.
  Supports Delphi 10.4 and up. The VCL-version should work in several previous versions, but the FMX-version will probably not work with 10.3 or lower. 10.3 definitely had some problems with FMX-TBitmap in threads.
+ Find this modern version in the folder BitmapScaling.
  
  !!! The FMX-version currently supports Windows32Bit and Windows64Bit only !!!
 
