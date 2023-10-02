@@ -1,3 +1,6 @@
+2023-10-2
+  New parallel unsharp-mask routine. See Sharpen.dproj in Demos\DemosVCL to explore its use. In ThreadsInThreads.dproj you can use it to optionally sharpen thumbs.
+
 2023-8-12
   Legacy demo: Fixed bug positioning the paintboxes when scrolled.
 

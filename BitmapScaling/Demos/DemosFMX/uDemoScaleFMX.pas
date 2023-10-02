@@ -81,6 +81,7 @@ type
     procedure ZoomOutClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure Image3Click(Sender: TObject);
+    procedure Image2Click(Sender: TObject);
   private
     TheOriginal, TheSource, TheTarget, TheScaled: TBitmap;
     Aspect: double;
@@ -157,6 +158,12 @@ begin
   Width.Repaint;
 end;
 
+procedure TDemoFMXMain.Image2Click(Sender: TObject);
+begin
+  if SD.Execute then
+  TheTarget.SaveToFile(SD.filename);
+end;
+
 procedure TDemoFMXMain.Image3Click(Sender: TObject);
 begin
   if SD.Execute then
@@ -220,7 +227,6 @@ begin
   im.Bitmap := nil;
   im.WrapMode := TImageWrapMode.Original;
   ScaleInv := 1 / im.Scene.GetSceneScale;
-  // ScaleInv:=1/Screen.Displays[0].Scale;
   im.Bitmap.Assign(bmp);
   im.Bitmap.BitmapScale := 1;
   im.Size.Size := PointF(bmp.Width * ScaleInv, bmp.Height * ScaleInv);

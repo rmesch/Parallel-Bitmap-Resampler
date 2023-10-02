@@ -1,3 +1,6 @@
+2023-10-2
+  New parallel unsharp-mask routine. You can use it in ThreadsInThreadsFMX.dproj for sharpening the thumbs.
+
 2023-5-13
   Added Zoom/Pan demo. Thumb size in ThreadsInThreads can be changed (small, medium, large).
 

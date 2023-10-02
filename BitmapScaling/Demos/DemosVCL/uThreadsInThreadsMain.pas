@@ -87,6 +87,7 @@ type
     ElapsedLoad, ElapsedResample: int64;
     OnDone: TNotifyEvent;
     MessageHandle: HWnd;
+    DoSharpen: boolean;
     constructor Create;
     destructor Destroy; override;
   end;
@@ -107,6 +108,7 @@ type
     OD: TFileOpenDialog;
     Label1: TLabel;
     ThumbSize: TComboBox;
+    Sharpen: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure ThumbViewResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -119,6 +121,7 @@ type
     procedure ThreadingClick(Sender: TObject);
     procedure NewRootClick(Sender: TObject);
     procedure ThumbSizeChange(Sender: TObject);
+    procedure SharpenClick(Sender: TObject);
   private
     Thumblist: TThumblist;
     ThumbsChanging: boolean;
@@ -259,7 +262,8 @@ begin
   MakeThumbsThreadUpper.Ready.ResetEvent;
   Thumblist.ThumbSize := MulDiv(ThumbSizes[ThumbSize.ItemIndex],
     Monitor.PixelsPerInch, 96);
-  Thumblist.DetailsSize := Abs(Font.Height)*2+MulDiv(10,Monitor.PixelsPerInch,96);
+  Thumblist.DetailsSize := Abs(Font.Height) * 2 +
+    MulDiv(10, Monitor.PixelsPerInch, 96);
   Thumblist.ThumbParent := ThumbView;
   Thumblist.MakeLists(CurDirectory, '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
     ThumbClick);
@@ -280,12 +284,15 @@ begin
   MakeThumbsThreadLower.Transparency := (TransparencyGroup.ItemIndex > 0);
   MakeThumbsThreadLower.ThreadingIndex := Threading.ItemIndex;
   MakeThumbsThreadLower.MessageHandle := self.Handle;
+  MakeThumbsThreadLower.DoSharpen := Sharpen.Checked;
 
   MakeThumbsThreadUpper.fThumblist := @Thumblist;
   MakeThumbsThreadUpper.fThreadpool := @ThreadpoolUpper;
   MakeThumbsThreadUpper.Transparency := (TransparencyGroup.ItemIndex > 0);
   MakeThumbsThreadUpper.ThreadingIndex := Threading.ItemIndex;
   MakeThumbsThreadUpper.MessageHandle := self.Handle;
+  MakeThumbsThreadUpper.DoSharpen := Sharpen.Checked;
+
   MakeThumbsTime.Start;
   MakeThumbsThreadLower.Wakeup.SetEvent;
   MakeThumbsThreadUpper.Wakeup.SetEvent;
@@ -300,6 +307,11 @@ begin
     Rootfolder := OD.Filename;
     DirectoryTree.NewRootFolder(Rootfolder);
   end;
+end;
+
+procedure TThreadsInThreadsMain.SharpenClick(Sender: TObject);
+begin
+  MakeNewThumbs;
 end;
 
 procedure TThreadsInThreadsMain.ThreadDone(var Msg: TMessage);
@@ -347,12 +359,13 @@ end;
 procedure TThreadsInThreadsMain.ThumbClick(Sender: TObject);
 var
   TH: TThumbControl;
-  bm, tm: TBitmap;
+  bm, am, tm: TBitmap;
   w, h, cw, ch: integer;
   Transparency: boolean;
   WIC: TWICImage;
   DoSetAlphaFormat: boolean;
   ClearColor: TColor;
+  us: TUnsharpParameters;
 begin
   if not ShowPicture.Visible then
     ShowPicture.Caption := 'Wait for the default thread pool to be initialized';
@@ -416,21 +429,35 @@ begin
     begin
       tm := TBitmap.Create;
       try
-        // resample using default threadpool
+        am := TBitmap.Create;
+        try
+          // resample using default threadpool
+          if Transparency then
+          begin
+            uScale.Resample(w, h, bm, am, cfLanczos, 0, true,
+              amTransparentColor, nil);
+          end
+          else if DoSetAlphaFormat then
+            uScale.Resample(w, h, bm, am, cfLanczos, 0, true,
+              amPreMultiply, nil)
+          else
+            uScale.Resample(w, h, bm, am, cfLanczos, 0, true, amIgnore, nil);
+          if Sharpen.Checked then
+          begin
+            us.AutoValues(w, h);
+            uScale.UnsharpMaskParallel(am, tm, us, nil);
+          end
+          else
+            tm.Assign(am);
+        finally
+          am.Free;
+        end;
         if Transparency then
-        begin
-          uScale.Resample(w, h, bm, tm, cfLanczos, 0, true,
-            amTransparentColor, nil);
-          tm.Transparent := true;
-        end
-        else if DoSetAlphaFormat then
-          uScale.Resample(w, h, bm, tm, cfLanczos, 0, true, amPreMultiply, nil)
+          tm.Transparent := true
         else
-          uScale.Resample(w, h, bm, tm, cfLanczos, 0, true, amIgnore, nil);
-
-        // Set the alphaformat of the target for display
-        if DoSetAlphaFormat then
-          tm.AlphaFormat := afDefined;
+          // Set the alphaformat of the target for display
+          if DoSetAlphaFormat then
+            tm.AlphaFormat := afDefined;
 
         ShowPicture.Canvas.Brush.Color := ClearColor;
         ShowPicture.Canvas.FillRect(ShowPicture.ClientRect);
@@ -690,7 +717,7 @@ end;
 procedure TMakeThumbsThread.DoMakeThumbs;
 var
   i: integer;
-  bm, tm: TBitmap;
+  bm, am, tm: TBitmap;
   w, h, Count, imin, imax: integer;
   UpdateMin, UpdateMax: integer;
   StopLoadFromFile, StopResample: TStopWatch;
@@ -698,6 +725,7 @@ var
   ThreadWIC: TWICImage;
   acm: TAlphaCombineMode;
   r: TFloatRect;
+  us: TUnsharpParameters;
 begin
   Count := fThumblist^.ThumbCount;
   if Count = 0 then
@@ -771,26 +799,38 @@ begin
         if w * h > 0 then
         begin
           tm := TBitmap.Create;
+          am := TBitmap.Create;
+          try
+            // Resample setting the second highest quality.
+            // If ThreadingIndex<>0, resample in parallel tasks or threads
+            // using a custom threadpool fThreadpool
+            if Transparency then
+              acm := amTransparentColor
+            else if DoSetAlphaFormat then
+              acm := amPreMultiply
+            else
+              acm := amIgnore;
 
-          // Resample setting the highest quality.
-          // If ThreadingIndex<>0, resample in parallel tasks or threads
-          // using a custom threadpool fThreadpool
-          if Transparency then
-            acm := amTransparentColor
-          else if DoSetAlphaFormat then
-            acm := amPreMultiply
-          else
-            acm := amIgnore;
+            r := FloatRect(0, 0, bm.width, bm.Height);
+            case ThreadingIndex of
+              0:
+                ZoomResample(w, h, bm, am, r, cfBicubic, 0, acm);
+              1:
+                ZoomResampleParallelThreads(w, h, bm, am, r, cfBicubic, 0, acm,
+                  fThreadpool);
+              2:
+                ZoomResampleParallelTasks(w, h, bm, am, r, cfBicubic, 0, acm);
+            end;
 
-          r := FloatRect(0, 0, bm.width, bm.Height);
-          case ThreadingIndex of
-            0:
-              ZoomResample(w, h, bm, tm, r, cfLanczos, 0, acm);
-            1:
-              ZoomResampleParallelThreads(w, h, bm, tm, r, cfLanczos, 0, acm,
-                fThreadpool);
-            2:
-              ZoomResampleParallelTasks(w, h, bm, tm, r, cfLanczos, 0, acm);
+            if DoSharpen then
+            begin
+              us.AutoValues(w, h);
+              uScale.UnsharpMaskParallel(am, tm, us, fThreadpool);
+            end
+            else
+              tm.Assign(am);
+          finally
+            am.Free;
           end;
 
           if Transparency then

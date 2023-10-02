@@ -228,7 +228,7 @@ end;
 procedure TZoomPanFMXMain.MovieBoxPaint(Sender: TObject; Canvas: TCanvas);
 begin
   Canvas.DrawBitmap(AniBm, RectF(0, 0, MovieWidth, MovieHeight),
-    RectF(0, 0, MovieBox.Width, MovieBox.Height), 1);
+    RectF(0, 0, MovieBox.Width, MovieBox.Height), 1, True);
 end;
 
 procedure TZoomPanFMXMain.MovieRectResize(Sender: TObject);

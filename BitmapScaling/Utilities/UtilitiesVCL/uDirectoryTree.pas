@@ -13,7 +13,8 @@ type
     FullPath: string;
     HasEnoughSubnodes: boolean;
   end;
-  PNodeData=^TNodeData;
+
+  PNodeData = ^TNodeData;
 
   TDirectoryTree = class(TTreeView)
   private
@@ -27,11 +28,13 @@ type
     destructor Destroy; override;
     procedure NewRootFolder(const RootFolder: string);
     function GetFullFolderName(aNode: TTreeNode): string;
+    procedure GetAllFiles(const aStringList: TStringlist;
+      const aFileMask: string);
   end;
 
 implementation
 
-uses WinAPI.Windows;
+uses WinAPI.Windows, WinAPI.ShlWApi;
 
 { TDirectoryTree }
 
@@ -65,7 +68,7 @@ begin
   begin
     Finalize(PNodeData(Node.Data)^);
     Dispose(PNodeData(Node.Data));
-    Node.Data:=nil;
+    Node.Data := nil;
   end;
   inherited;
 
@@ -84,7 +87,7 @@ var
   NewName: string;
   FileAtr: integer;
   DirectoryCount: integer;
-  NodeData : PNodeData;
+  NodeData: PNodeData;
 begin
   if not assigned(aItem.Data) then
     raise Exception.Create('Node has no directory name');
@@ -116,10 +119,10 @@ begin
       if aItem.Count <= i then // NewName isn't a node yet
       begin
         New(NodeData);
-        NodeData.FullPath:=NewName;
-        NodeData.HasEnoughSubnodes:=false;
+        NodeData.FullPath := NewName;
+        NodeData.HasEnoughSubnodes := false;
         TreeItem := Items.AddChild(aItem, ExtractFilename(NewName));
-        TreeItem.Data:=NodeData;
+        TreeItem.Data := NodeData;
         TreeItem.ImageIndex := 0;
       end
       else
@@ -139,7 +142,7 @@ begin
       if (DirArraySize2 < 1) or (DirArraySize2 > 1000) then
       begin
         // Don't expand a folder with more than 1000 subfolders any futher
-        PNodeData(TreeItem.data).HasEnoughSubnodes:=true;
+        PNodeData(TreeItem.Data).HasEnoughSubnodes := true;
         Continue;
       end;
       for j := 0 to DirArraySize2 - 1 do
@@ -150,12 +153,12 @@ begin
           New(NodeData);
           NodeData.FullPath := DirArray2[j];
           NodeData.HasEnoughSubnodes := false;
-          TreeItem2.Data:=NodeData;
+          TreeItem2.Data := NodeData;
           TreeItem2.ImageIndex := 0;
         end;
       end;
     end;
-    PNodeData(aItem.Data).HasEnoughSubnodes:=true;
+    PNodeData(aItem.Data).HasEnoughSubnodes := true;
   finally
     Items.EndUpdate;
   end;
@@ -179,21 +182,63 @@ begin
     New(NodeData);
     NodeData.FullPath := RootFolder;
     NodeData.HasEnoughSubnodes := false;
-    Root.Data:=NodeData;
+    Root.Data := NodeData;
     Root.ImageIndex := 0;
     CreateSubNodesToLevel2(Root);
   finally
     Items.EndUpdate;
   end;
   Root.Expand(false);
-  Root.Selected:=true;
+  Root.Selected := true;
 end;
 
 function TDirectoryTree.GetFullFolderName(aNode: TTreeNode): string;
 begin
   if not assigned(aNode.Data) then
     raise Exception.Create('Node has no directory name');
-  Result :=PNodeData(aNode.Data).FullPath;
+  Result := PNodeData(aNode.Data).FullPath;
+end;
+
+function LogicalCompare(List: TStringlist; Index1, Index2: integer): integer;
+begin
+  Result := StrCmpLogicalW(PWideChar(List[Index1]), PWideChar(List[Index2]));
+end;
+
+procedure TDirectoryTree.GetAllFiles(const aStringList: TStringlist;
+const aFileMask: string);
+var
+  FilePath, mask, SearchStr: string;
+  MaskLen, MaskPos, SepPos: integer;
+begin
+  FilePath := IncludeTrailingBackSlash(GetFullFolderName(Selected));
+  Assert(Assigned(aStringList));
+  aStringList.Clear;
+  mask := aFileMask;
+  MaskLen := Length(mask);
+  MaskPos := 0;
+
+  while MaskPos >= 0 do
+  begin
+    SepPos := Pos(';', mask, MaskPos + 1) - 1;
+    if SepPos >= 0 then
+      SearchStr := Copy(mask, MaskPos + 1, SepPos - MaskPos)
+    else
+      SearchStr := Copy(mask, MaskPos + 1, MaskLen);
+
+    aStringList.AddStrings(TDirectory.GetFiles(FilePath, SearchStr,
+      TSearchOption.soTopDirectoryOnly));
+
+    if SepPos >= 0 then
+    begin
+      inc(SepPos);
+      if SepPos >= MaskLen then
+        SepPos := -1;
+    end;
+    MaskPos := SepPos;
+  end;
+
+  // Natural sorting order, e.g. '7' '8' '9' '10'
+  aStringList.CustomSort(LogicalCompare);
 end;
 
 end.

@@ -535,6 +535,7 @@ object DemoMain: TDemoMain
     Top = 81
   end
   object SPD: TSavePictureDialog
+    Filter = '|*.png;*.bmp'
     Left = 9
     Top = 137
   end

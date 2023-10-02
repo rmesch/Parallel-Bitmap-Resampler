@@ -1,11 +1,8 @@
-program DemoScale;
+program Sharpen;
 
 uses
   Vcl.Forms,
-  uDemoScaleMain in 'uDemoScaleMain.pas' {DemoMain},
-  Vcl.Themes,
-  Vcl.Styles,
-  uTestBitmap in '..\..\Utilities\uTestBitmap.pas',
+  uSharpenMain in 'uSharpenMain.pas' {SharpenMain},
   uTools in '..\..\Utilities\UtilitiesVCL\uTools.pas',
   uScale in '..\..\Resampler\uScale.pas',
   uScaleCommon in '..\..\Resampler\uScaleCommon.pas';
@@ -15,6 +12,6 @@ uses
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
-  Application.CreateForm(TDemoMain, DemoMain);
+  Application.CreateForm(TSharpenMain, SharpenMain);
   Application.Run;
 end.

@@ -124,9 +124,9 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
       OnClick = NewRootClick
     end
     object ThumbSize: TComboBox
-      Left = 169
-      Top = 17
-      Width = 145
+      Left = 107
+      Top = 19
+      Width = 106
       Height = 21
       Style = csDropDownList
       ItemIndex = 1
@@ -137,6 +137,15 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
         'Small thumbs'
         'Medium thumbs'
         'Large thumbs')
+    end
+    object Sharpen: TCheckBox
+      Left = 228
+      Top = 20
+      Width = 97
+      Height = 17
+      Caption = 'Sharpen'
+      TabOrder = 4
+      OnClick = SharpenClick
     end
   end
   object ThumbView: TScrollBox

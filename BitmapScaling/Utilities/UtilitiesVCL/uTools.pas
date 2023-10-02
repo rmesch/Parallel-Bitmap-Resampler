@@ -1,4 +1,4 @@
-unit uTools;
+﻿unit uTools;
 // contains some helper routines for loading image formats into a TBitmap and
 // utilities to modify the alpha-channel.
 
@@ -34,11 +34,11 @@ procedure ClearAlphaChannel(const bm: TBitmap);
 procedure MakeAlphaChannel(const bm: TBitmap);
 
 procedure ScaleStretchHalftone(NewWidth, NewHeight: integer;
-const Source, Target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
+  const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
 
 implementation
 
-uses System.Math, System.Classes;
+uses System.Math, System.Classes, VCL.Forms;
 
 var
   // SourceWIC is created in initialization, this makes its use threadsafe, if used in 1 thread only.
@@ -85,23 +85,26 @@ begin
 end;
 
 procedure ScaleStretchHalftone(NewWidth, NewHeight: integer;
-const Source, Target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
-var p: TPoint;
+  const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
+var
+  p: TPoint;
 begin
-  Source.PixelFormat:=pf32bit;
+  Source.PixelFormat := pf32bit;
   if AlphaCombineMode = amPreMultiply then
     Source.AlphaFormat := afDefined
   else
     Source.AlphaFormat := afIgnored;
   target.PixelFormat := pf32bit;
   target.SetSize(NewWidth, NewHeight);
-  GetBrushOrgEx(Target.Canvas.Handle,p);
-  SetStretchBltMode(target.Canvas.handle,HALFTONE);
-  SetBrushOrgEx(Target.Canvas.Handle,p.x,p.y,@p);
-  StretchBlt(Target.Canvas.Handle,
-    0,0,NewWidth,NewHeight,Source.Canvas.Handle,0,0,Source.Width,Source.Height,SRCCopy);
-  Target.AlphaFormat:=afIgnored;
+  GetBrushOrgEx(target.Canvas.Handle, p);
+  SetStretchBltMode(target.Canvas.Handle, HALFTONE);
+  SetBrushOrgEx(target.Canvas.Handle, p.x, p.y, @p);
+  StretchBlt(target.Canvas.Handle, 0, 0, NewWidth, NewHeight,
+    Source.Canvas.Handle, 0, 0, Source.Width, Source.Height, SRCCopy);
+  target.AlphaFormat := afIgnored;
 end;
+
+
 
 procedure ScaleWICImagingBiCubic(NewWidth, NewHeight: integer;
   const Source, target: TBitmap; AlphaCombineMode: TAlphaCombineMode);
@@ -150,7 +153,7 @@ begin
     PixBmp := PRGBQuad(Rowbmp);
     for x := 0 to bmp.Width - 1 do
     begin
-      PRGBTriple(PixBmp)^:=PixPng^;
+      PRGBTriple(PixBmp)^ := PixPng^;
       PixBmp.rgbReserved := RowAlpha[x];
       inc(PixBmp);
       inc(PixPng);
@@ -272,7 +275,7 @@ begin
       dec(rowBG, bpsBG);
     end;
   finally
-    BG.free;
+    BG.Free;
   end;
 end;
 
@@ -325,10 +328,10 @@ begin
   // Create a 256 gray-scale palette
   pal.lpal.palVersion := $300;
   pal.lpal.palNumEntries := 256;
-  {$IfOpt R+}
-  {$Define R_Plus}
-  {$R-}
-  {$EndIf}
+{$IFOPT R+}
+{$DEFINE R_Plus}
+{$R-}
+{$ENDIF}
   for i := 0 to 255 do
     with pal.lpal.palPalEntry[i] do
     begin
@@ -336,9 +339,9 @@ begin
       peGreen := i;
       peBlue := i;
     end;
-  {$IfDef R_Plus}
-  {$R+}
-  {$EndIf}
+{$IFDEF R_Plus}
+{$R+}
+{$ENDIF}
   bAlpha.Palette := CreatePalette(pal.lpal);
   bAlpha.SetSize(w, h);
   bps := ((w * 32 + 31) and not 31) div 8;
@@ -362,14 +365,12 @@ begin
   DeleteObject(bAlpha.Palette);
 end;
 
-
-
 initialization
 
 SourceWIC := TWICImage.Create;
 
 finalization
 
-SourceWIC.free;
+SourceWIC.Free;
 
 end.

@@ -65,6 +65,7 @@ type
     ElapsedLoad, ElapsedResample: int64;
     OnDone: TNotifyEvent;
     SceneScale: single;
+    DoSharpen: boolean;
     constructor Create;
     destructor Destroy; override;
   end;
@@ -84,6 +85,7 @@ type
     Label2: TLabel;
     Label3: TLabel;
     ThumbSizeBox: TComboBox;
+    Sharpen: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure DirectoryTreeChange(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -92,6 +94,7 @@ type
     procedure FormShow(Sender: TObject);
     procedure NewRootClick(Sender: TObject);
     procedure ThumbSizeBoxChange(Sender: TObject);
+    procedure SharpenChange(Sender: TObject);
   private
     ThumbList: TThumblist;
     CurDirectory: string;
@@ -141,6 +144,7 @@ begin
   DirectoryTree.Align := TAlignLayout.Client;
   DirectoryTree.Images := ImageList1;
   DirectoryTree.OnChange := DirectoryTreeChange;
+  DirectoryTree.AutoHide := false;
   DirectoryTree.NewRootFolder(TPath.GetPicturesPath);
 end;
 
@@ -208,10 +212,14 @@ begin
   MakeThumbsThreadLower.OnDone := ThreadDone;
   MakeThumbsThreadLower.ThreadingIndex := Threading.ItemIndex;
   MakeThumbsThreadLower.SceneScale := ScreenScale;
+  MakeThumbsThreadLower.DoSharpen := Sharpen.IsChecked;
+
   MakeThumbsThreadUpper.fThumblist := @ThumbList;
   MakeThumbsThreadUpper.OnDone := ThreadDone;
   MakeThumbsThreadUpper.ThreadingIndex := Threading.ItemIndex;
-  MakeThumbsThreadUpper.SceneScale := ScreenScale; //so we know the absolute pixel size of the thumbs
+  MakeThumbsThreadUpper.SceneScale := ScreenScale;
+  MakeThumbsThreadUpper.DoSharpen := Sharpen.IsChecked;
+
   TimeLoad := 0;
   TimeResample := 0;
   MakeThumbsTime.Reset;
@@ -228,6 +236,12 @@ begin
   begin
     DirectoryTree.NewRootFolder(LDirectory);
   end;
+end;
+
+
+procedure TThreadsInThreadsFMXMain.SharpenChange(Sender: TObject);
+begin
+  MakeNewThumbs;
 end;
 
 procedure TThreadsInThreadsFMXMain.ThreadDone(Sender: TObject);
@@ -462,13 +476,14 @@ end;
 procedure TMakeThumbsThread.DoMakeThumbs;
 var
   i: integer;
-  bm, tm: TBitmap;
+  bm, am, tm: TBitmap;
   Count, imin, imax: integer;
   w, h: integer;
   StopLoadFromFile, StopResample: TStopWatch;
   WrongFormat: boolean;
   acm: TAlphaCombineMode;
   r: TRectF;
+  us: TUnsharpParameters;
 begin
   Count := fThumblist^.ThumbCount;
   if Count = 0 then
@@ -531,27 +546,39 @@ begin
           w := round(w * SceneScale);
           h := round(h * SceneScale);
           tm := TBitmap.Create;
-          acm := amIndependent;
-          r := RectF(0, 0, bm.Width, bm.Height);
-          case ThreadingIndex of
-            0:
-              begin
-                tm.SetSize(w, h);
-                if tm.Canvas.BeginScene() then
+          am := TBitmap.Create;
+          try
+            acm := amIndependent;
+            r := RectF(0, 0, bm.Width, bm.Height);
+            case ThreadingIndex of
+              0:
                 begin
-                  tm.Canvas.Clear(0);
-                  tm.Canvas.DrawBitmap(bm, r, RectF(0, 0, w, h), 1, false);
-                  tm.Canvas.EndScene;
+                  am.SetSize(w, h);
+                  if am.Canvas.BeginScene() then
+                  begin
+                    am.Canvas.Clear(0);
+                    am.Canvas.DrawBitmap(bm, r, RectF(0, 0, w, h), 1, false);
+                    am.Canvas.EndScene;
+                  end;
                 end;
-              end;
-            // Resample setting bicubic quality, better quality than TCanvas.DrawBitmap
-            3:
-              ZoomResample(w, h, bm, tm, r, cfBicubic, 0, acm);
-            1:
-              ZoomResampleParallelThreads(w, h, bm, tm, r, cfBicubic, 0, acm,
-                fThreadpool);
-            2:
-              ZoomResampleParallelTasks(w, h, bm, tm, r, cfBicubic, 0, acm);
+              // Resample setting bicubic quality, better quality than TCanvas.DrawBitmap
+              3:
+                ZoomResample(w, h, bm, am, r, cfBicubic, 0, acm);
+              1:
+                ZoomResampleParallelThreads(w, h, bm, am, r, cfBicubic, 0, acm,
+                  fThreadpool);
+              2:
+                ZoomResampleParallelTasks(w, h, bm, am, r, cfBicubic, 0, acm);
+            end;
+            if DoSharpen then
+            begin
+              us.AutoValues(w, h);
+              UnsharpMaskParallel(am, tm, us, fThreadPool);
+            end
+            else
+              tm.Assign(am);
+          finally
+            am.Free;
           end;
           fThumblist.DataList[i].Bitmap := tm;
           // fThumblist will free it
@@ -564,7 +591,7 @@ begin
     if (i mod 10 = 9) or (i = imax) then
       if not DoAbort then
       begin
-        TThread.Queue(nil,
+        TThread.ForceQueue(nil,
           procedure
           begin
             fThumblist.ThumbParent.Repaint;

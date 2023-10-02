@@ -15,7 +15,7 @@ unit uScale;
 (* ***************************************************************
   High quality resampling of VCL-bitmaps using various filters
   (Box, Bilinear, Bicubic, Lanczos etc.) and including fast threaded routines.
-  Copyright 2003-2023 Renate Schaaf
+  Copyright © 2003-2023 Renate Schaaf
   Inspired by A.Melander, M.Lischke, E.Grange.
   Supported Delphi-versions: 10.x and up, probably works with
   some earlier versions, but untested. Right now I can only test on 11.3.
@@ -26,10 +26,6 @@ unit uScale;
 
 interface
 
-uses WinApi.Windows, VCL.Graphics, System.Types, System.UITypes,
-  System.Threading, System.SysUtils, System.Classes, System.Math,
-  System.SyncObjs, uScaleCommon;
-
 {$IFOPT O-}
 {$DEFINE O_MINUS}
 {$O+}
@@ -38,6 +34,17 @@ uses WinApi.Windows, VCL.Graphics, System.Types, System.UITypes,
 {$DEFINE Q_PLUS}
 {$Q-}
 {$ENDIF}
+
+uses WinApi.Windows,
+  VCL.Graphics,
+  System.Types,
+  System.UITypes,
+  System.Threading,
+  System.SysUtils,
+  System.Classes,
+  System.Math,
+  System.SyncObjs,
+  uScaleCommon;
 
 type
 
@@ -88,7 +95,7 @@ procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
   ThreadPool: PResamplingThreadPool = nil);
 
 // The following procedure allows you to compare performance of TResamplingThreads to
-// the built-in TTask-threading. Is currently not threadsafe.
+// the built-in TTask-threading. Is now threadsafe.
 // Timings with TTask tend to be erratic. Sometimes it takes a very long time,
 // I think this happens whenever the system deems it necessary to re-initialize
 // the threading-framework.
@@ -105,6 +112,22 @@ procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
+
+type
+  // Radius: Pixel-radius for Gaussian blur. Sigma = Radius/5
+  // Alpha: PixelResult = Alpha*PixelSource + (1-Alpha)*Blur. Alpha>1 sharpens, Alpha=0 is Gaussian blur
+  // Thresh: Threshhold. Sharpen/Blur will only be applied if abs(PixelSource-Blur)>Thresh*255.
+  TUnsharpParameters = record
+    Alpha, Radius, Thresh: single;
+    procedure AutoValues(Width, Height: integer);
+  end;
+
+  /// <summary> Applies an unsharp-mask to Source and stores result in Target. Attention: Alpha-channel is copied unchanged. </summary>
+procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters);
+
+/// <summary> Applies an unsharp-mask to Source and stores result in Target using parallel threads.  Attention: Alpha-channel is copied unchanged. </summary>
+procedure UnsharpMaskParallel(Source, Target: TBitmap;
+  Parameters: TUnsharpParameters; ThreadPool: PResamplingThreadPool = nil);
 
 function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
   overload; inline;
@@ -134,9 +157,9 @@ begin
       y, ymin, ymax: integer;
       CacheStart: PBGRAInt;
     begin
-      CacheStart:=@RTS.CacheMatrix[Index][0];
-      ymin:= RTS.ymin[Index];
-      ymax:= RTS.ymax[Index];
+      CacheStart := @RTS.CacheMatrix[Index][0];
+      ymin := RTS.ymin[Index];
+      ymax := RTS.ymax[Index];
       for y := ymin to ymax do
       begin
         ProcessRow(y, CacheStart, RTS, AlphaCombineMode);
@@ -267,8 +290,8 @@ begin
     InitTransparency(Source, TransColor);
 
   Target.SetSize(NewWidth, NewHeight);
-  Tbps := -((NewWidth * 32 + 31) and not 31) div 8;
-  Sbps := -((Source.Width * 32 + 31) and not 31) div 8;
+  Tbps := -4 * NewWidth;
+  Sbps := -4 * Source.Width;
 
   RTS.PrepareResamplingThreads(NewWidth, NewHeight, Source.Width, Source.Height,
     Radius, Filter, SourceRect, AlphaCombineMode, TP.ThreadCount, Sbps, Tbps,
@@ -375,7 +398,7 @@ begin
   RTS.PrepareResamplingThreads(NewWidth, NewHeight, OldWidth, OldHeight, Radius,
     Filter, SourceRect, AlphaCombineMode, 1, Sbps, Tbps, rStart, rTStart);
 
-  CacheStart:= @RTS.CacheMatrix[0][0];
+  CacheStart := @RTS.CacheMatrix[0][0];
 
   // Compute colors for each target row at y
   for y := 0 to NewHeight - 1 do
@@ -410,9 +433,179 @@ begin
 
 end;
 
+// thresh needs to be between 0 and 1; percentage of byte-range for the threshhold to sharpen.
+procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters);
+var
+  ContribsX, ContribsY: TContribArray;
+
+  Width, Height: integer;
+
+  bps, y: integer;
+  rStart, rTStart: PByte;
+  beta: single;
+  sig, alphaInt: integer;
+  runstart: PBGRAInt;
+  Cache: TBGRAIntArray;
+begin
+  Source.PixelFormat := pf32bit;
+  Target.PixelFormat := pf32bit;
+  Width := Source.Width;
+  Height := Source.Height;
+  Target.Width := Width;
+  Target.Height := Height;
+
+  bps := -4 * Width;
+
+  if Parameters.Alpha > 1 then
+  begin
+    beta := sqrt(Parameters.Alpha - 1);
+    sig := -1;
+  end
+  else
+  begin
+    beta := sqrt(1 - Parameters.Alpha);
+    sig := 1;
+  end;
+  alphaInt := round($800 * $800 * Parameters.Alpha);
+  MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
+  MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
+  rStart := Source.Scanline[0];
+  rTStart := Target.Scanline[0];
+
+  // SourceMin := ContribsX[0].Min;
+  // SourceMax := ContribsX[Width - 1].Min + ContribsX[Width - 1].High;
+  // Assert(SourceMin=0);
+  // Assert(SourceMax=Width-1);
+  SetLength(Cache, Width);
+  runstart := @Cache[0];
+
+  // Compute colors for each target row at y
+  for y := 0 to Height - 1 do
+  begin
+    ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig, Parameters.Thresh,
+      rStart, rTStart, runstart, ContribsX, ContribsY);
+  end;
+end;
+
+procedure UnsharpMaskParallel(Source, Target: TBitmap;
+  Parameters: TUnsharpParameters; ThreadPool: PResamplingThreadPool = nil);
+var
+  ContribsX, ContribsY: TContribArray;
+
+  Width, Height: integer;
+
+  bps: integer;
+  rStart, rTStart: PByte; // Row start in Source, Target
+  beta: single;
+  sig, alphaInt: integer;
+  Cache: TCacheMatrix;
+  TP: PResamplingThreadPool;
+  yChunkCount, ThreadCount, yChunk: integer;
+  yminArray, ymaxArray: TIntArray;
+  ThreadIndex, j: integer;
+
+  function GetUnsharpProc(Index: integer): TProc;
+  begin
+    Result := procedure
+      var
+        ymin, ymax, y: integer;
+        runstart: PBGRAInt;
+      begin
+        ymin := yminArray[Index];
+        ymax := ymaxArray[Index];
+        runstart := @Cache[Index][0];
+        for y := ymin to ymax do
+          ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig,
+            Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY);
+      end
+  end;
+
+begin
+  if (ThreadPool = nil) or (ThreadPool = @_DefaultThreadPool) then
+  // just initialize _DefaultThreadPool without raising an exception
+  begin
+    TP := @_DefaultThreadPool;
+    if not TP.Initialized then
+      TP.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount - 1), tpHigher);
+  end
+  else
+  begin
+    TP := ThreadPool;
+    if not TP.Initialized then
+      raise eParallelException.Create('Thread pool not initialized.');
+  end;
+
+  Source.PixelFormat := pf32bit;
+  Target.PixelFormat := pf32bit;
+  Width := Source.Width;
+  Height := Source.Height;
+  Target.Width := Width;
+  Target.Height := Height;
+
+  bps := -4 * Width;
+
+  if Parameters.Alpha > 1 then
+  begin
+    beta := sqrt(Parameters.Alpha - 1);
+    sig := -1;
+  end
+  else
+  begin
+    beta := sqrt(1 - Parameters.Alpha);
+    sig := 1;
+  end;
+  alphaInt := round($800 * $800 * Parameters.Alpha);
+  MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
+  MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
+  rStart := Source.Scanline[0];
+  rTStart := Target.Scanline[0];
+
+  yChunkCount := max(Min(Height div _ChunkHeight + 1, TP.ThreadCount), 1);
+  ThreadCount := yChunkCount;
+
+  SetLength(yminArray, ThreadCount);
+  SetLength(ymaxArray, ThreadCount);
+
+  yChunk := Height div yChunkCount;
+
+  for j := 0 to yChunkCount - 1 do
+  begin
+    yminArray[j] := j * yChunk;
+    if j < yChunkCount - 1 then
+      ymaxArray[j] := (j + 1) * yChunk - 1
+    else
+      ymaxArray[j] := Height - 1;
+  end;
+
+  SetLength(Cache, ThreadCount);
+  for ThreadIndex := 0 to ThreadCount - 1 do
+    SetLength(Cache[ThreadIndex], Width);
+
+  for ThreadIndex := 0 to ThreadCount - 1 do
+  begin
+    TP.ResamplingThreads[ThreadIndex].RunAnonProc(GetUnsharpProc(ThreadIndex));
+  end;
+  for ThreadIndex := 0 to ThreadCount - 1 do
+  begin
+    TP.ResamplingThreads[ThreadIndex].Done.Waitfor(INFINITE);
+  end;
+end;
+
+{ TUnsharpParameters }
+
+procedure TUnsharpParameters.AutoValues(Width, Height: integer);
+var
+  size: integer;
+begin
+  size := max(Width, Height);
+  Radius := 1 + sqrt(0.008 * size);
+  Alpha := 2.7;
+  Thresh := 5 / 256; // 5 color levels
+end;
+
 initialization
 
-_IsFMX:=false;
+_IsFMX := false;
 
 finalization
 

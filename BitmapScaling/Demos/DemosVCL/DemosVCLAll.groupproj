@@ -12,6 +12,9 @@
         <Projects Include="ZoomPan.dproj">
             <Dependencies/>
         </Projects>
+        <Projects Include="Sharpen.dproj">
+            <Dependencies/>
+        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -47,14 +50,23 @@
     <Target Name="ZoomPan:Make">
         <MSBuild Projects="ZoomPan.dproj" Targets="Make"/>
     </Target>
+    <Target Name="Sharpen">
+        <MSBuild Projects="Sharpen.dproj"/>
+    </Target>
+    <Target Name="Sharpen:Clean">
+        <MSBuild Projects="Sharpen.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Sharpen:Make">
+        <MSBuild Projects="Sharpen.dproj" Targets="Make"/>
+    </Target>
     <Target Name="Build">
-        <CallTarget Targets="DemoScale;ThreadsInThreads;ZoomPan"/>
+        <CallTarget Targets="DemoScale;ThreadsInThreads;ZoomPan;Sharpen"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="DemoScale:Clean;ThreadsInThreads:Clean;ZoomPan:Clean"/>
+        <CallTarget Targets="DemoScale:Clean;ThreadsInThreads:Clean;ZoomPan:Clean;Sharpen:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="DemoScale:Make;ThreadsInThreads:Make;ZoomPan:Make"/>
+        <CallTarget Targets="DemoScale:Make;ThreadsInThreads:Make;ZoomPan:Make;Sharpen:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

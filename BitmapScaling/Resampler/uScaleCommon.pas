@@ -12,18 +12,23 @@
   under the License.
   ***************************************************************************** }
 
-  { ***************************************************************************
-    This unit contains types constants and procedures used by both the VCL- and the
-    FMX-version of the resampler (uScale and uScaleFMX). If you use any of the uScale*
-    units, also add uScaleCommon to the uses clause.
-    ****************************************************************************}
+{ ***************************************************************************
+  This unit contains types constants and procedures used by both the VCL- and the
+  FMX-version of the resampler (uScale and uScaleFMX). If you use any of the uScale*
+  units, also add uScaleCommon to the uses clause.
+  **************************************************************************** }
 
 unit uScaleCommon;
 
 interface
 
-uses System.Types, System.UITypes,
-  System.Threading, System.SysUtils, System.Classes, System.Math,
+uses
+  System.Types,
+  System.UITypes,
+  System.Threading,
+  System.SysUtils,
+  System.Classes,
+  System.Math,
   System.SyncObjs;
 
 {$IFOPT O-}
@@ -34,6 +39,7 @@ uses System.Types, System.UITypes,
 {$DEFINE Q_PLUS}
 {$Q-}
 {$ENDIF}
+{$WARN SYMBOL_PLATFORM OFF}
 
 type
   // Filter types
@@ -128,14 +134,16 @@ type
   TContribArray = array of TContributor;
 
   TResamplingThreadSetup = record
-    Tbps, Sbps: integer; // pitch (bytes per scanline) in Target/Source. Negative for VCL-TBitmap
+    Tbps, Sbps: integer;
+    // pitch (bytes per scanline) in Target/Source. Negative for VCL-TBitmap
     ContribsX, ContribsY: TContribArray; // contributors horizontal/vertical
     rStart, rTStart: PByte; // Scanline for row 0
     xmin, xmax: integer;
     ThreadCount: integer;
     xminSource, xmaxSource: integer;
-    ymin, ymax: TIntArray;  //ymin,ymax for each thread
-    CacheMatrix: TCacheMatrix; // Cache for result of vertical pass, 1 array for each thread.
+    ymin, ymax: TIntArray; // ymin,ymax for each thread
+    CacheMatrix: TCacheMatrix;
+    // Cache for result of vertical pass, 1 array for each thread.
     procedure PrepareResamplingThreads(NewWidth, NewHeight, OldWidth,
       OldHeight: integer; Radius: single; Filter: TFilter; SourceRect: TRectF;
       AlphaCombineMode: TAlphaCombineMode; aMaxThreadCount: integer;
@@ -146,7 +154,7 @@ type
 
 var
   _DefaultThreadPool: TResamplingThreadPool;
-  _IsFMX: boolean; //value is set in initialization of uScale and uScaleFMX
+  _IsFMX: boolean; // value is set in initialization of uScale and uScaleFMX
 
 const
   // constants used to divide the work for threading
@@ -160,7 +168,15 @@ procedure InitDefaultResamplingThreads;
 procedure FinalizeDefaultResamplingThreads;
 
 procedure ProcessRow(y: integer; CacheStart: PBGRAInt;
-  const RTS: TResamplingThreadSetup; AlphaCombineMode: TAlphaCombineMode); inline;
+  const RTS: TResamplingThreadSetup;
+  AlphaCombineMode: TAlphaCombineMode); inline;
+
+procedure MakeGaussContributors(r, fact: single; SourceSize: integer;
+  var Contribs: TContribArray);
+
+procedure ProcessRowUnsharp(y, bps, xmin, xmax, alphaInt, sig: integer;
+  Thresh: single; rStart, rTStart: PByte; runstart: PBGRAInt;
+  const ContribsX, ContribsY: TContribArray); inline;
 
 implementation
 
@@ -290,17 +306,7 @@ begin
     // upsampling
     rr := r;
   delta := 1 / rr;
-  if scale = 1 then
-  begin
-    for x := 0 to TargetSize - 1 do
-    begin
-      Contribs[x].Min := x;
-      Contribs[x].High := 0;
-      SetLength(Contribs[x].Weights, 1);
-      Contribs[x].Weights[0] := prec;
-    end;
-    exit;
-  end;
+
   for x := 0 to TargetSize - 1 do
   begin
     xCenter := (x + 0.5) * scale;
@@ -376,8 +382,6 @@ begin
     { with Contribs[x] }
   end; { for x }
 end;
-
-
 
 procedure Combine(const ps: PBGRA; const Weight: integer; const Cache: PBGRAInt;
   const acm: TAlphaCombineMode); inline;
@@ -506,7 +510,8 @@ begin
 end;
 
 procedure ProcessRow(y: integer; CacheStart: PBGRAInt;
-  const RTS: TResamplingThreadSetup; AlphaCombineMode: TAlphaCombineMode); inline;
+  const RTS: TResamplingThreadSetup;
+  AlphaCombineMode: TAlphaCombineMode); inline;
 var
   ps, pT: PBGRA;
   rs, rT: PByte;
@@ -516,7 +521,7 @@ var
   Weight: integer;
   Total: TBGRAInt;
   run: PBGRAInt;
-
+  jump: integer;
 begin
   miny := RTS.ContribsY[y].Min;
   highy := RTS.ContribsY[y].High;
@@ -529,15 +534,18 @@ begin
   ps := PBGRA(rs);
   run := CacheStart;
   Weight := Weighty^;
-  //resample vertically into Cache-Array. run points to Cache-Array-Entry.
-  //ps is a source-pixel
-  for x := RTS.xminSource to RTS.xmaxSource do
+  // resample vertically into Cache-Array. run points to Cache-Array-Entry.
+  // ps is a source-pixel
+  // for x := RTS.xminSource to RTS.xmaxSource do
+  x := RTS.xmaxSource - RTS.xminSource + 1;
+  while x > 0 do
   begin
 
     Combine(ps, Weight, run, AlphaCombineMode);
 
     inc(ps);
     inc(run);
+    dec(x);
   end; // for x
   inc(Weighty);
   inc(rs, RTS.Sbps);
@@ -546,13 +554,16 @@ begin
     ps := PBGRA(rs);
     run := CacheStart;
     Weight := Weighty^;
-    for x := RTS.xminSource to RTS.xmaxSource do
+    // for x := RTS.xminSource to RTS.xmaxSource do
+    x := RTS.xmaxSource - RTS.xminSource + 1;
+    while x > 0 do
     begin
 
       Increase(ps, Weight, run, AlphaCombineMode);
 
       inc(ps);
       inc(run);
+      dec(x);
     end; // for x
     inc(Weighty);
     inc(rs, RTS.Sbps);
@@ -560,11 +571,10 @@ begin
   pT := PBGRA(rT);
   inc(pT, RTS.xmin);
   run := CacheStart;
-  var
-    jump: integer := RTS.xminSource;
+  jump := RTS.xminSource;
 
-  //Resample Cache-array horizontally into target row.
-  //Total is the result for one pixel as TBGRAInt.
+  // Resample Cache-array horizontally into target row.
+  // Total is the result for one pixel as TBGRAInt.
   for x := RTS.xmin to RTS.xmax do
   begin
     minx := RTS.ContribsX[x].Min;
@@ -748,8 +758,8 @@ begin
     exit;
   // creating more threads than processors present does not seem to
   // speed up anything.
-  _DefaultThreadPool.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount),
-    tpHigher);
+  _DefaultThreadPool.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount -
+    1), tpHigher);
 end;
 
 procedure FinalizeDefaultResamplingThreads;
@@ -757,6 +767,237 @@ begin
   if not _DefaultThreadPool.fInitialized then
     exit;
   _DefaultThreadPool.Finalize;
+end;
+
+// Follows the code for the Unsharp-Mask:
+
+const
+  // radius 1 corresponds to sigma=1/5
+  sigmaInv = 5;
+  sigma = 1 / sigmaInv;
+
+function Gauss(x: double): double; inline;
+var
+  scale: double;
+begin
+  if x < 0 then
+  begin
+    Result := Gauss(-x);
+    exit;
+  end;
+  if x > 1 then
+    Result := 0
+  else
+  begin
+    scale := sigmaInv / sqrt(2) / sqrt(Pi);
+    Result := scale * exp(-1 / 2 * x * x * sigmaInv * sigmaInv);
+  end;
+end;
+
+// Simpson's rule. Assumes x1<x2.
+function GaussIntegral(x1, x2: double): double; inline;
+var
+  xmid: double;
+begin
+  x1 := max(x1, -1);
+  x2 := Min(x2, 1);
+  xmid := 0.5 * (x1 + x2);
+  Result := 1 / 6 * (x2 - x1) * (Gauss(x1) + Gauss(x2) + 4 * Gauss(xmid));
+end;
+
+type
+  TDoublearray = array of double;
+
+  // r is the radius of the unsharp-mask, corresponding to sigma=r/5 for the Gauss-kernel
+  // fact is sqrt(abs(1-alpha)), where for the sharpening
+  // ResultPixel:=alpha*SourcePixel + (1-alpha)*Gaussian-Blur
+  // Because the blur is applied horizontally and vertically, the square-root
+  // needs to enter in the weights.
+  // We include the factor in the weights so we can scale everything to integer,
+  // and need not compute in the float range.
+  // For sharpening alpha needs to be >1. Alpha<1 blurs, alpha=0 is Gaussian blur.
+procedure MakeGaussContributors(r, fact: single; SourceSize: integer;
+  var Contribs: TContribArray);
+
+var
+  xCenter: double;
+  x, j: integer;
+  x1, x2, delta: double;
+  TrueMin, TrueMax, Mx: integer;
+  RealWeights: TDoublearray;
+  sum, scale, dw: double;
+begin
+  SetLength(Contribs, SourceSize);
+
+  delta := 1 / r;
+  xCenter := (0.5);
+  TrueMin := Ceil(xCenter - r - 1);
+  TrueMax := Floor(xCenter + r);
+
+  for x := 0 to SourceSize - 1 do
+  begin
+    xCenter := (x + 0.5);
+    TrueMin := Ceil(xCenter - r - 1);
+    TrueMax := Floor(xCenter + r);
+    Contribs[x].Min := Min(max(TrueMin, 0), SourceSize - 1);
+    // make sure not to read in negative pixel locations
+    Mx := max(Min(TrueMax, SourceSize - 1), 0);
+    // make sure not to read past w1-1 in the source
+    Contribs[x].High := Mx - Contribs[x].Min;
+    Assert(Contribs[x].High >= 0);
+    // High=Number of contributing pixels minus 1
+    SetLength(RealWeights, Contribs[x].High + 1);
+    SetLength(Contribs[x].Weights, Contribs[x].High + 1);
+    x1 := delta * (Contribs[x].Min - xCenter);
+    sum := 0;
+    for j := 0 to Contribs[x].High do
+    begin
+      x2 := x1 + delta;
+      RealWeights[j] := GaussIntegral(x1, x2);
+      x1 := x2;
+      sum := sum + RealWeights[j];
+    end;
+    for j := TrueMin - Contribs[x].Min to -1 do
+    begin
+      // assume the first pixel to be repeated
+      x1 := delta * (Contribs[x].Min + j - xCenter);
+      x2 := x1 + delta;
+      dw := GaussIntegral(x1, x2);
+      RealWeights[0] := RealWeights[0] + dw;
+      sum := sum + dw;
+    end;
+    for j := Contribs[x].High + 1 to TrueMax - Contribs[x].Min do
+    begin
+      // assume the last pixel to be repeated
+      x1 := delta * (Contribs[x].Min + j - xCenter);
+      x2 := x1 + delta;
+      dw := GaussIntegral(x1, x2);
+      RealWeights[Contribs[x].High] := RealWeights[Contribs[x].High] + dw;
+      sum := sum + dw;
+    end;
+    if sum = 0 then
+      scale := 1
+    else
+      scale := 1 / sum;
+    for j := 0 to Contribs[x].High do
+      Contribs[x].Weights[j] := round($800 * fact * scale * RealWeights[j]);
+  end; { for x }
+end;
+
+procedure ProcessRowUnsharp(y, bps, xmin, xmax, alphaInt, sig: integer;
+  Thresh: single; rStart, rTStart: PByte; runstart: PBGRAInt;
+  const ContribsX, ContribsY: TContribArray); inline;
+var
+  ps, pT: PBGRA;
+  rs, rT: PByte;
+  x, i, j: integer;
+  highx, highy, minx, miny: integer;
+  Weightx, Weighty: PInteger;
+  Weight: integer;
+  Total: TBGRAInt;
+  run: PBGRAInt;
+  delta, scale: integer;
+  threshInt: integer;
+begin
+  scale := abs($800 * $800 - alphaInt);
+  threshInt := round(scale * Thresh * 255);
+  miny := ContribsY[y].Min;
+  highy := ContribsY[y].High;
+  rs := rStart;
+  rT := rTStart;
+  inc(rs, bps * miny);
+  inc(rT, bps * y);
+  inc(rs, 4 * xmin);
+  Weighty := @ContribsY[y].Weights[0];
+  ps := PBGRA(rs);
+  run := runstart;
+  Weight := Weighty^;
+  x := xmax - xmin + 1;
+  while x > 0 do
+  begin
+    run.b := Weight * ps.b;
+    run.g := Weight * ps.g;
+    run.r := Weight * ps.r;
+    inc(ps);
+    inc(run);
+    dec(x);
+  end; // for x
+  inc(Weighty);
+  inc(rs, bps);
+  for j := 1 to highy do
+  begin
+    ps := PBGRA(rs);
+    run := runstart;
+    Weight := Weighty^;
+    x := xmax - xmin + 1;
+    while x > 0 do
+    begin
+      inc(run.b, Weight * ps.b);
+      inc(run.g, Weight * ps.g);
+      inc(run.r, Weight * ps.r);
+      inc(ps);
+      inc(run);
+      dec(x);
+    end; // for x
+    inc(Weighty);
+    inc(rs, bps);
+  end; // for j
+  pT := PBGRA(rT);
+  rs := rStart;
+  inc(rs, bps * y);
+  ps := PBGRA(rs);
+  inc(ps, xmin);
+  inc(pT, xmin);
+  // ps and pT now need to be at the same location to do the sharpening
+  run := runstart;
+  var
+    jump: integer := xmin;
+  for x := xmin to xmax do
+  begin
+    minx := ContribsX[x].Min;
+    highx := ContribsX[x].High;
+    Weightx := @ContribsX[x].Weights[0];
+    inc(run, minx - jump);
+    Weight := Weightx^;
+    Total.b := Weight * run.b;
+    Total.g := Weight * run.g;
+    Total.r := Weight * run.r;
+
+    inc(Weightx);
+    inc(run);
+    for i := 1 to highx do
+    begin
+
+      Weight := Weightx^;
+      inc(Total.b, Weight * run.b);
+      inc(Total.g, Weight * run.g);
+      inc(Total.r, Weight * run.r);
+
+      inc(Weightx);
+      inc(run);
+    end;
+    jump := highx + 1 + minx;
+
+    delta := max(max(abs(Total.r - scale * ps.r), abs(Total.b - scale * ps.b)),
+      abs(Total.g - scale * ps.g));
+    if delta > threshInt then
+    begin
+      Total.b := sig * Total.b + alphaInt * ps.b;
+      Total.g := sig * Total.g + alphaInt * ps.g;
+      Total.r := sig * Total.r + alphaInt * ps.r;
+
+      pT.b := Min((max(Total.b, 0) + $1FFFFF) shr 22, 255);
+      pT.g := Min((max(Total.g, 0) + $1FFFFF) shr 22, 255);
+      pT.r := Min((max(Total.r, 0) + $1FFFFF) shr 22, 255);
+      //leave the alpha as is
+      pT.a := ps.a;
+    end
+    else
+      pT^ := ps^;
+
+    inc(pT);
+    inc(ps);
+  end; // for x
 end;
 
 initialization

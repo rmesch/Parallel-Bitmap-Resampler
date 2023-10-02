@@ -1,5 +1,4 @@
 program ThreadsInThreadsFMX;
-
 uses
   System.StartUpCopy,
   FMX.Forms,
@@ -10,7 +9,6 @@ uses
   uDirectoryTreeFMX in '..\..\Utilities\UtilitiesFMX\uDirectoryTreeFMX.pas';
 
 {$R *.res}
-
 begin
   Application.Initialize;
   Application.CreateForm(TThreadsInThreadsFMXMain, ThreadsInThreadsFMXMain);

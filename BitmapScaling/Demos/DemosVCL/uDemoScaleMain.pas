@@ -10,9 +10,11 @@ uses
   System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
   Vcl.Samples.Spin, Vcl.ExtDlgs, System.ImageList, Vcl.ImgList,
-  Vcl.VirtualImageList, Vcl.BaseImageCollection, Vcl.ImageCollection, System.Types
-  //You now need to put uScale and uScaleCommon into the uses clause
-  ,uScale, uScaleCommon;
+  Vcl.Imaging.pngimage,
+  Vcl.VirtualImageList, Vcl.BaseImageCollection, Vcl.ImageCollection,
+  System.Types
+  // You now need to put uScale and uScaleCommon into the uses clause
+    , uScale, uScaleCommon;
 
 type
   TDemoMain = class(TForm)
@@ -215,11 +217,105 @@ begin
   DisplaySource;
 end;
 
+procedure LoadFromPng(aBmp: TBitmap; const Filename: string);
+var
+  wic: TWICImage;
+begin
+  wic := TWICImage.Create;
+  try
+    wic.LoadFromFile(FileName);
+    aBmp.Assign(wic);
+  finally
+    wic.Free;
+  end;
+end;
+
+procedure SaveToPng(aBmp: TBitmap; const Filename: string);
+var
+  wic: TWICImage;
+begin
+  Assert(aBmp.PixelFormat=pf32bit);
+  wic := TWICImage.Create;
+  try
+    aBmp.AlphaFormat := afDefined;
+    wic.Assign(aBmp);
+    wic.ImageFormat := wifPng;
+    wic.SaveToFile(Filename);
+  finally
+    wic.Free;
+  end;
+end;
+
+procedure SaveTransparentBitmap(ABitmap: TBitmap; const AFileName: string);
+var
+  FS: TFileStream;
+  BFH: TBitmapFileHeader;
+  BIH: TBitmapV5Header;
+  y: Integer;
+  sl: PUInt64;
+begin
+
+  // ABitmap MUST have the GIMP BGRA format.
+
+  FS := TFileStream.Create(AFileName, fmOpenWrite);
+  try
+
+    // Bitmap file header
+    FillChar(BFH, SizeOf(BFH), 0);
+    BFH.bfType := $4D42;  // BM
+    BFH.bfSize := 4 * ABitmap.Width * ABitmap.Height + SizeOf(BFH) + SizeOf(BIH);
+    BFH.bfOffBits := SizeOf(BFH) + SizeOf(BIH);
+    FS.Write(BFH, SizeOf(BFH));
+
+    // Bitmap info header
+    FillChar(BIH, SizeOf(BIH), 0);
+    BIH.bV5Size := SizeOf(BIH);
+    BIH.bV5Width := ABitmap.Width;
+    BIH.bV5Height := ABitmap.Height;
+    BIH.bV5Planes := 1;
+    BIH.bV5BitCount := 32;
+    BIH.bV5Compression := BI_BITFIELDS;
+    BIH.bV5SizeImage := 4 * ABitmap.Width * ABitmap.Height;
+    BIH.bV5XPelsPerMeter := 11811;
+    BIH.bV5YPelsPerMeter := 11811;
+    BIH.bV5ClrUsed := 0;
+    BIH.bV5ClrImportant := 0;
+    BIH.bV5RedMask :=   $00FF0000;
+    BIH.bV5GreenMask := $0000FF00;
+    BIH.bV5BlueMask :=  $000000FF;
+    BIH.bV5AlphaMask := $FF000000;
+    BIH.bV5CSType := $73524742; // BGRs
+    BIH.bV5Intent := LCS_GM_GRAPHICS;
+    FS.Write(BIH, SizeOf(BIH));
+
+    // Pixels
+    for y := ABitmap.Height - 1 downto 0 do
+    begin
+      sl := ABitmap.ScanLine[y];
+      FS.Write(sl^, 4 * ABitmap.Width);
+    end;
+
+  finally
+    FS.Free;
+  end;
+
+end;
+
 procedure TDemoMain.Image2DblClick(Sender: TObject);
+var
+  ext: string;
 begin
   if SPD.Execute then
-    TheTarget.SaveToFile(SPD.Filename);
+  begin
+     ext:=ExtractFileExt(SPD.FileName);
+      if ext='.png' then
+      SaveToPng(TheTarget,SPD.FileName)
+      else
+      SaveTransparentBitmap(TheTarget,SPD.FileName);
+  end;
 end;
+
+
 
 procedure TDemoMain.Image2MouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
@@ -267,17 +363,17 @@ end;
 
 procedure TDemoMain.LoadClick(Sender: TObject);
 var
-  WIC: TWICImage;
+  wic: TWICImage;
 begin
   if not OPD.Execute() then
     exit;
   ZoomFact := 1;
-  WIC := TWICImage.Create;
+  wic := TWICImage.Create;
   try
-    WIC.LoadFromFile(OPD.Filename);
-    WICToBmp(WIC, TheOriginal);
+    wic.LoadFromFile(OPD.Filename);
+    WICToBmp(wic, TheOriginal);
   finally
-    WIC.Free;
+    wic.Free;
   end;
   MakeSourceAlpha;
   DisplaySource;
@@ -530,8 +626,8 @@ begin
       try
         StopWatch.Start;
 
-        ScaleWICImagingBicubic(nw, nh, bm, help,
-          TAlphaCombineMode(CombineModes.ItemIndex));
+         ScaleWICImagingBicubic(nw, nh, bm, help,
+         TAlphaCombineMode(CombineModes.ItemIndex));
         StopWatch.Stop;
         bm.Assign(help);
       finally
