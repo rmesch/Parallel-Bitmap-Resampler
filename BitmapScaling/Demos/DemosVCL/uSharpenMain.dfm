@@ -10,6 +10,7 @@ object SharpenMain: TSharpenMain
   Font.Height = -12
   Font.Name = 'Segoe UI'
   Font.Style = []
+  WindowState = wsMaximized
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 15
@@ -20,7 +21,6 @@ object SharpenMain: TSharpenMain
     Height = 385
     Align = alRight
     TabOrder = 0
-    ExplicitLeft = 768
     DesignSize = (
       154
       385)
@@ -155,7 +155,6 @@ object SharpenMain: TSharpenMain
     Height = 76
     Align = alTop
     TabOrder = 1
-    ExplicitWidth = 922
     object GroupBox1: TGroupBox
       Left = 1
       Top = 1
@@ -316,7 +315,6 @@ object SharpenMain: TSharpenMain
     Align = alClient
     Caption = 'Panel3'
     TabOrder = 2
-    ExplicitWidth = 768
     object Splitter1: TSplitter
       Left = 357
       Top = 1
@@ -334,6 +332,8 @@ object SharpenMain: TSharpenMain
       VertScrollBar.Tracking = True
       Align = alLeft
       TabOrder = 0
+      ExplicitLeft = 0
+      ExplicitTop = 0
       object DisplayOriginal: TImage
         Left = 0
         Top = 0
@@ -351,15 +351,15 @@ object SharpenMain: TSharpenMain
       VertScrollBar.Tracking = True
       Align = alClient
       TabOrder = 1
-      ExplicitLeft = 389
-      ExplicitWidth = 378
-      object DisplaySharpened: TImage
+      ExplicitLeft = 361
+      ExplicitTop = 0
+      object DisplaySharpened: TPaintBox
         Left = 0
         Top = 0
         Width = 105
         Height = 105
-        AutoSize = True
         OnClick = DisplaySharpenedClick
+        OnPaint = DisplaySharpenedPaint
       end
     end
   end

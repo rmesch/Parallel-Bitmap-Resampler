@@ -443,8 +443,8 @@ var
   size: integer;
 begin
   size := max(Width, Height);
-  Radius := 1 + sqrt(0.008 * size);
-  Alpha := 2.7;
+  Radius := 1 + sqrt(0.004 * size);
+  Alpha := 2.6;
   Thresh := 5 / 256; // 5 color levels
 end;
 

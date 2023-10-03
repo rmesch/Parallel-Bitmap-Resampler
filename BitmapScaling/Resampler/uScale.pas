@@ -114,19 +114,24 @@ procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
 type
-  // Radius: Pixel-radius for Gaussian blur. Sigma = Radius/5
+  // Radius: Pixel-radius for Gaussian blur. Sigma = Radius/SigmaInv.
+  // Value of SigmaInv: See function Gauss in uScaleCommon.
+  // The value of SigmaInv is chosen so the Weight at r is 0.01 times the Weight at 0.
+
   // Alpha: PixelResult = Alpha*PixelSource + (1-Alpha)*Blur. Alpha>1 sharpens, Alpha=0 is Gaussian blur
+
   // Thresh: Threshhold. Sharpen/Blur will only be applied if abs(PixelSource-Blur)>Thresh*255.
   TUnsharpParameters = record
     Alpha, Radius, Thresh: single;
+/// <summary Computes parameters for given image size WidthxHeight, which mostly give a nice looking sharpening effect. Based on experiment. </summary>
     procedure AutoValues(Width, Height: integer);
   end;
 
   /// <summary> Applies an unsharp-mask to Source and stores result in Target. Attention: Alpha-channel is copied unchanged. </summary>
-procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters);
+procedure UnsharpMask(const Source, Target: TBitmap; Parameters: TUnsharpParameters);
 
 /// <summary> Applies an unsharp-mask to Source and stores result in Target using parallel threads.  Attention: Alpha-channel is copied unchanged. </summary>
-procedure UnsharpMaskParallel(Source, Target: TBitmap;
+procedure UnsharpMaskParallel(const Source, Target: TBitmap;
   Parameters: TUnsharpParameters; ThreadPool: PResamplingThreadPool = nil);
 
 function FloatRect(Aleft, ATop, ARight, ABottom: double): TFloatRect;
@@ -433,8 +438,7 @@ begin
 
 end;
 
-// thresh needs to be between 0 and 1; percentage of byte-range for the threshhold to sharpen.
-procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters);
+procedure UnsharpMask(const Source, Target: TBitmap; Parameters: TUnsharpParameters);
 var
   ContribsX, ContribsY: TContribArray;
 
@@ -487,7 +491,7 @@ begin
   end;
 end;
 
-procedure UnsharpMaskParallel(Source, Target: TBitmap;
+procedure UnsharpMaskParallel(const Source, Target: TBitmap;
   Parameters: TUnsharpParameters; ThreadPool: PResamplingThreadPool = nil);
 var
   ContribsX, ContribsY: TContribArray;
@@ -495,7 +499,7 @@ var
   Width, Height: integer;
 
   bps: integer;
-  rStart, rTStart: PByte; // Row start in Source, Target
+  rStart, rTStart: PByte;
   beta: single;
   sig, alphaInt: integer;
   Cache: TCacheMatrix;
@@ -598,8 +602,8 @@ var
   size: integer;
 begin
   size := max(Width, Height);
-  Radius := 1 + sqrt(0.008 * size);
-  Alpha := 2.7;
+  Radius := 1 + sqrt(0.004 * size);
+  Alpha := 2.6;
   Thresh := 5 / 256; // 5 color levels
 end;
 

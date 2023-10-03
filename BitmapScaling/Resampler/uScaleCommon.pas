@@ -128,7 +128,7 @@ type
     Min, High: integer;
     // Min: start source pixel
     // High+1: number of source pixels to contribute to the result
-    Weights: array of integer; // floats scaled by $100  or $800
+    Weights: TIntArray; // floats scaled by $100  or $800
   end;
 
   TContribArray = array of TContributor;
@@ -757,7 +757,7 @@ begin
   if _DefaultThreadPool.fInitialized then
     exit;
   // creating more threads than processors present does not seem to
-  // speed up anything.
+  // speed up anything. Leave 1 processor for system.
   _DefaultThreadPool.Initialize(Min(_MaxThreadCount, TThread.ProcessorCount -
     1), tpHigher);
 end;
@@ -771,10 +771,14 @@ end;
 
 // Follows the code for the Unsharp-Mask:
 
-const
-  // radius 1 corresponds to sigma=1/5
-  sigmaInv = 5;
-  sigma = 1 / sigmaInv;
+ const
+ //with this value Gauss(1)=0.01*Gauss(0).
+ //when Gauss is scaled to an interval [-r,r]
+ //via Gauss_r(x) = 1/r*Gauss(1/r*x), the
+ //sigma of Gauss_r is sigma_r = r/sigmaInv appr. = 0.33*r.
+ sigmaInv = 3.0348542587702927017259447870998;
+ sigma = 1 / sigmaInv;
+
 
 function Gauss(x: double): double; inline;
 var
@@ -789,7 +793,7 @@ begin
     Result := 0
   else
   begin
-    scale := sigmaInv / sqrt(2) / sqrt(Pi);
+    scale := sigmaInv / Sqrt(2 * Pi);
     Result := scale * exp(-1 / 2 * x * x * sigmaInv * sigmaInv);
   end;
 end;
@@ -808,7 +812,9 @@ end;
 type
   TDoublearray = array of double;
 
-  // r is the radius of the unsharp-mask, corresponding to sigma=r/5 for the Gauss-kernel
+  // r is the radius of the unsharp-mask, corresponding to sigma=r/SigmaInv for the Gauss-kernel
+  // scaled to [-r,r].
+
   // fact is sqrt(abs(1-alpha)), where for the sharpening
   // ResultPixel:=alpha*SourcePixel + (1-alpha)*Gaussian-Blur
   // Because the blur is applied horizontally and vertically, the square-root
@@ -825,14 +831,42 @@ var
   x1, x2, delta: double;
   TrueMin, TrueMax, Mx: integer;
   RealWeights: TDoublearray;
+  StandardWeights: TIntArray;
   sum, scale, dw: double;
 begin
   SetLength(Contribs, SourceSize);
-
+  //First we compute StandardWeights for the blur,
+  //the weights to be applied when [x-r,x+r]
+  //does not intersect the image-boundary.
   delta := 1 / r;
-  xCenter := (0.5);
+  xCenter := 0.5;
   TrueMin := Ceil(xCenter - r - 1);
   TrueMax := Floor(xCenter + r);
+  SetLength(RealWeights, TrueMax - TrueMin + 1);
+  x1 := delta * (TrueMin - xCenter);
+  sum := 0;
+  for j := 0 to TrueMax - TrueMin do
+  begin
+    x2 := x1 + delta;
+    RealWeights[j] := GaussIntegral(x1, x2);
+    x1 := x2;
+    sum := sum + RealWeights[j];
+  end;
+  if sum = 0 then
+    scale := 1
+  else
+    scale := 1 / sum;
+  //RealWeights need to be mulitplied by 1/sum,
+  //so they add up to 1.
+  //StandardWeights are scaled to integer by $800.
+  //The factor fact=sqrt(abs(1-alpha)) is multiplied in.
+  //As a result the StandardWeights sum up to
+  // approximately $800*fact.
+  //When applied horizontally and vertically, weights sum up
+  //to $800*$800*abs(1-alpha).
+  SetLength(StandardWeights, Length(RealWeights));
+  for j := 0 to Length(StandardWeights) - 1 do
+    StandardWeights[j] := round($800 * fact * scale * RealWeights[j]);
 
   for x := 0 to SourceSize - 1 do
   begin
@@ -845,42 +879,51 @@ begin
     // make sure not to read past w1-1 in the source
     Contribs[x].High := Mx - Contribs[x].Min;
     Assert(Contribs[x].High >= 0);
-    // High=Number of contributing pixels minus 1
-    SetLength(RealWeights, Contribs[x].High + 1);
-    SetLength(Contribs[x].Weights, Contribs[x].High + 1);
-    x1 := delta * (Contribs[x].Min - xCenter);
-    sum := 0;
-    for j := 0 to Contribs[x].High do
-    begin
-      x2 := x1 + delta;
-      RealWeights[j] := GaussIntegral(x1, x2);
-      x1 := x2;
-      sum := sum + RealWeights[j];
-    end;
-    for j := TrueMin - Contribs[x].Min to -1 do
-    begin
-      // assume the first pixel to be repeated
-      x1 := delta * (Contribs[x].Min + j - xCenter);
-      x2 := x1 + delta;
-      dw := GaussIntegral(x1, x2);
-      RealWeights[0] := RealWeights[0] + dw;
-      sum := sum + dw;
-    end;
-    for j := Contribs[x].High + 1 to TrueMax - Contribs[x].Min do
-    begin
-      // assume the last pixel to be repeated
-      x1 := delta * (Contribs[x].Min + j - xCenter);
-      x2 := x1 + delta;
-      dw := GaussIntegral(x1, x2);
-      RealWeights[Contribs[x].High] := RealWeights[Contribs[x].High] + dw;
-      sum := sum + dw;
-    end;
-    if sum = 0 then
-      scale := 1
+
+    if Contribs[x].High = Length(StandardWeights) - 1 then
+      //radius-interval does not intersect boundary
+      Contribs[x].Weights := StandardWeights
     else
-      scale := 1 / sum;
-    for j := 0 to Contribs[x].High do
-      Contribs[x].Weights[j] := round($800 * fact * scale * RealWeights[j]);
+      //radius-interval intersects boundary. Assume
+      //boundary-pixel to be repeated.
+      //I'm sure there's a smarter way to code this :)
+    begin
+      SetLength(RealWeights, Contribs[x].High + 1);
+      SetLength(Contribs[x].Weights, Contribs[x].High + 1);
+      x1 := delta * (Contribs[x].Min - xCenter);
+      sum := 0;
+      for j := 0 to Contribs[x].High do
+      begin
+        x2 := x1 + delta;
+        RealWeights[j] := GaussIntegral(x1, x2);
+        x1 := x2;
+        sum := sum + RealWeights[j];
+      end;
+      for j := TrueMin - Contribs[x].Min to -1 do
+      begin
+        // assume the first pixel to be repeated
+        x1 := delta * (Contribs[x].Min + j - xCenter);
+        x2 := x1 + delta;
+        dw := GaussIntegral(x1, x2);
+        RealWeights[0] := RealWeights[0] + dw;
+        sum := sum + dw;
+      end;
+      for j := Contribs[x].High + 1 to TrueMax - Contribs[x].Min do
+      begin
+        // assume the last pixel to be repeated
+        x1 := delta * (Contribs[x].Min + j - xCenter);
+        x2 := x1 + delta;
+        dw := GaussIntegral(x1, x2);
+        RealWeights[Contribs[x].High] := RealWeights[Contribs[x].High] + dw;
+        sum := sum + dw;
+      end;
+      if sum = 0 then
+        scale := 1
+      else
+        scale := 1 / sum;
+      for j := 0 to Contribs[x].High do
+        Contribs[x].Weights[j] := round($800 * fact * scale * RealWeights[j]);
+    end;
   end; { for x }
 end;
 
@@ -899,8 +942,18 @@ var
   delta, scale: integer;
   threshInt: integer;
 begin
+  // scaled abs(1-alpha):
   scale := abs($800 * $800 - alphaInt);
+
+  // scales Thresh*255 by $800*$800*abs(1-alpha),
+  // which is the sum of the Gauss-Weights.
+  // Needed to scale the difference of SourcePixel-Blur
+  // to the right order of magnitude.
   threshInt := round(scale * Thresh * 255);
+
+  //Apply Blur-Weights vertically,
+  //Store results in Cache-Array.
+  //run walks along the Cache-Array.
   miny := ContribsY[y].Min;
   highy := ContribsY[y].High;
   rs := rStart;
@@ -942,6 +995,8 @@ begin
     inc(Weighty);
     inc(rs, bps);
   end; // for j
+
+
   pT := PBGRA(rT);
   rs := rStart;
   inc(rs, bps * y);
@@ -954,6 +1009,8 @@ begin
     jump: integer := xmin;
   for x := xmin to xmax do
   begin
+    //Apply blur-weights horizontally to CacheArray,
+    //store result in Total. Total is (scaled) blur at x.
     minx := ContribsX[x].Min;
     highx := ContribsX[x].High;
     Weightx := @ContribsX[x].Weights[0];
@@ -978,10 +1035,16 @@ begin
     end;
     jump := highx + 1 + minx;
 
+    // Total now holds the values for $800*$800*abs(1-alpha)*Blur
+
+    //Scale ps to this order of magnitude so the threshhold
+    //can be checked correctly.
     delta := max(max(abs(Total.r - scale * ps.r), abs(Total.b - scale * ps.b)),
       abs(Total.g - scale * ps.g));
     if delta > threshInt then
     begin
+      // if alpha > 1 the blur needs to be subtracted (sig=-1),
+      // otherwise added (sig=1).
       Total.b := sig * Total.b + alphaInt * ps.b;
       Total.g := sig * Total.g + alphaInt * ps.g;
       Total.r := sig * Total.r + alphaInt * ps.r;
@@ -989,7 +1052,7 @@ begin
       pT.b := Min((max(Total.b, 0) + $1FFFFF) shr 22, 255);
       pT.g := Min((max(Total.g, 0) + $1FFFFF) shr 22, 255);
       pT.r := Min((max(Total.r, 0) + $1FFFFF) shr 22, 255);
-      //leave the alpha as is
+      // leave the alpha as is
       pT.a := ps.a;
     end
     else

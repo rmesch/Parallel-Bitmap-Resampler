@@ -1,3 +1,6 @@
+2023-10-3
+  More efficient code for unsharp-mask.
+
 2023-10-2
   New parallel unsharp-mask routine. You can use it in ThreadsInThreadsFMX.dproj for sharpening the thumbs.
 

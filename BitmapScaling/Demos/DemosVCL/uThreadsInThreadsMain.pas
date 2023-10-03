@@ -214,12 +214,14 @@ begin
   MakeThumbsThreadUpper.Priority := tpHighest;
   MakeThumbsThreadUpper.LowerHalf := false;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
+
   MakeThumbsTime := TStopWatch.Create;
   DirectoryTree := TDirectoryTree.Create(self);
   DirectoryTree.Parent := Panel2;
   DirectoryTree.Align := alClient;
   DirectoryTree.Images := VirtualImageList1;
   DirectoryTree.OnChange := DirectoryTreeChange;
+  DirectoryTree.HideSelection:=false;
   DirectoryTree.NewRootFolder(TPath.GetPicturesPath);
   Rootfolder := TPath.GetPicturesPath;
 end;

@@ -38,7 +38,6 @@ type
     ScrollBox1: TScrollBox;
     DisplayOriginal: TImage;
     ScrollBox2: TScrollBox;
-    DisplaySharpened: TImage;
     Splitter1: TSplitter;
     GroupBox1: TGroupBox;
     LoadImage: TButton;
@@ -63,6 +62,7 @@ type
     Label6: TLabel;
     Label7: TLabel;
     FSD: TFileSaveDialog;
+    DisplaySharpened: TPaintBox;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure LoadImageClick(Sender: TObject);
@@ -72,6 +72,7 @@ type
     procedure ScalePercentChange(Sender: TObject);
     procedure EnableSharpenClick(Sender: TObject);
     procedure DisplaySharpenedClick(Sender: TObject);
+    procedure DisplaySharpenedPaint(Sender: TObject);
   private
     { Private-Deklarationen }
     TheOriginal, TheSharpened, TheScaled: TBitmap;
@@ -153,7 +154,8 @@ begin
     TheSharpened.Assign(TheScaled);
   StopWatch.Stop;
   TimeSharpen.Caption := StopWatch.ElapsedMilliseconds.ToString;
-  DisplaySharpened.Picture.Bitmap := TheSharpened;
+  DisplaySharpened.SetBounds(-Scrollbox2.HorzScrollBar.Position,-Scrollbox2.VertScrollBar.Position,TheSharpened.Width,TheSharpened.height);
+  DisplaySharpened.Invalidate;
 end;
 
 procedure TSharpenMain.EnableSharpenClick(Sender: TObject);
@@ -176,6 +178,8 @@ begin
   AlphaSliderChange(nil);
   RadiusSliderChange(nil);
   ThreshSliderChange(nil);
+  With DisplaySharpened do
+  ControlStyle:=ControlStyle+[csOpaque];
 end;
 
 procedure TSharpenMain.FormDestroy(Sender: TObject);
@@ -257,6 +261,11 @@ begin
   ScalePercentChange(nil);
   DoScale;
   DoSharpen;
+end;
+
+procedure TSharpenMain.DisplaySharpenedPaint(Sender: TObject);
+begin
+  BitBlt(DisplaySharpened.Canvas.Handle,0,0,TheSharpened.Width,TheSharpened.Height,TheSharpened.Canvas.Handle,0,0,SRCCopy);
 end;
 
 procedure TSharpenMain.RadiusSliderChange(Sender: TObject);
