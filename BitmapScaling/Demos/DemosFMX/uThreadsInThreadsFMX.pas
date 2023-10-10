@@ -573,7 +573,7 @@ begin
             if DoSharpen then
             begin
               us.AutoValues(w, h);
-              UnsharpMaskParallel(am, tm, us, fThreadPool);
+              UnsharpMaskParallel(am, tm, us, acm, fThreadpool);
             end
             else
               tm.Assign(am);

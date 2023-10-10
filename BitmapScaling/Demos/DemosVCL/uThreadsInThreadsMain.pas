@@ -368,6 +368,7 @@ var
   DoSetAlphaFormat: boolean;
   ClearColor: TColor;
   us: TUnsharpParameters;
+  acm: TAlphaCombineMode;
 begin
   if not ShowPicture.Visible then
     ShowPicture.Caption := 'Wait for the default thread pool to be initialized';
@@ -436,18 +437,17 @@ begin
           // resample using default threadpool
           if Transparency then
           begin
-            uScale.Resample(w, h, bm, am, cfLanczos, 0, true,
-              amTransparentColor, nil);
+            acm:=amTransparentColor;
           end
           else if DoSetAlphaFormat then
-            uScale.Resample(w, h, bm, am, cfLanczos, 0, true,
-              amPreMultiply, nil)
+            acm:=amPremultiply
           else
-            uScale.Resample(w, h, bm, am, cfLanczos, 0, true, amIgnore, nil);
+            acm:=amIgnore;
+            uScale.Resample(w, h, bm, am, cfLanczos, 0, true, acm, nil);
           if Sharpen.Checked then
           begin
             us.AutoValues(w, h);
-            uScale.UnsharpMaskParallel(am, tm, us, nil);
+            uScale.UnsharpMaskParallel(am, tm, us, acm, nil);
           end
           else
             tm.Assign(am);
@@ -827,7 +827,7 @@ begin
             if DoSharpen then
             begin
               us.AutoValues(w, h);
-              uScale.UnsharpMaskParallel(am, tm, us, fThreadpool);
+              uScale.UnsharpMaskParallel(am, tm, us, acm, fThreadpool);
             end
             else
               tm.Assign(am);

@@ -63,6 +63,10 @@ type
     Label7: TLabel;
     FSD: TFileSaveDialog;
     DisplaySharpened: TPaintBox;
+    UseGamma: TCheckBox;
+    Label8: TLabel;
+    ShowGamma: TSpinEdit;
+    Blending: TRadioGroup;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure LoadImageClick(Sender: TObject);
@@ -73,9 +77,12 @@ type
     procedure EnableSharpenClick(Sender: TObject);
     procedure DisplaySharpenedClick(Sender: TObject);
     procedure DisplaySharpenedPaint(Sender: TObject);
+    procedure UseGammaClick(Sender: TObject);
+    procedure ShowGammaChange(Sender: TObject);
+    procedure BlendingClick(Sender: TObject);
   private
     { Private-Deklarationen }
-    TheOriginal, TheSharpened, TheScaled: TBitmap;
+    TheOriginal, TheSharpened, TheScaled, TheDisplay: TBitmap;
     function GetRadius: single;
     function GetAlpha: single;
 
@@ -87,6 +94,8 @@ type
     function GetNewSize: TPoint;
     function GetFilter: TFilter;
     function GetUnsharpParameters: TUnsharpParameters;
+    function GetUseAlpha: boolean;
+    function GetUseTransparentColor: boolean;
   public
     { Public-Deklarationen }
 
@@ -97,6 +106,8 @@ type
     property Thresh: single read GetThresh;
     property NewSize: TPoint read GetNewSize;
     property Filter: TFilter read GetFilter;
+    property UseAlpha: boolean read GetUseAlpha;
+    property UseTransparentColor: boolean read GetUseTransparentColor;
   end;
 
 var
@@ -114,10 +125,43 @@ begin
   DoSharpen;
 end;
 
+procedure TSharpenMain.BlendingClick(Sender: TObject);
+begin
+  DisplayOriginal.Picture := nil;
+  DisplayOriginal.Transparent:=false;
+  DisplayOriginal.Picture.Bitmap := TheOriginal;
+  if UseAlpha then
+    DisplayOriginal.Picture.Bitmap.AlphaFormat := afDefined
+  else
+    DisplayOriginal.Picture.Bitmap.AlphaFormat := afIgnored;
+  if UseTransparentColor then
+  begin
+    ClearAlphaChannel(DisplayOriginal.Picture.Bitmap);
+    DisplayOriginal.Transparent := true;
+  end;
+  DoScale;
+  DoSharpen;
+end;
+
 procedure TSharpenMain.DisplaySharpenedClick(Sender: TObject);
+var
+  wic: TWicImage;
 begin
   if FSD.Execute then
-    TheSharpened.SaveToFile(FSD.FileName);
+  begin
+    wic := TWicImage.Create;
+    try
+      if UseAlpha then
+        TheSharpened.AlphaFormat := afDefined
+      else
+        TheSharpened.AlphaFormat := afIgnored;
+      wic.Assign(TheSharpened);
+      wic.ImageFormat := TWicImageFormat.wifPng;
+      wic.SaveToFile(FSD.FileName);
+    finally
+      wic.Free;
+    end;
+  end;
 end;
 
 procedure TSharpenMain.DoScale;
@@ -130,8 +174,16 @@ begin
   StopWatch.Start;
   if ScalePercent.Value <> 100 then
   begin
-    uScale.Resample(NewSize.X, NewSize.Y, TheOriginal, TheScaled, Filter, 0,
-      True, amIgnore);
+    if UseAlpha then
+
+      uScale.Resample(NewSize.X, NewSize.Y, TheOriginal, TheScaled, Filter, 0,
+        true, amPreMultiply)
+    else if UseTransparentColor then
+      uScale.Resample(NewSize.X, NewSize.Y, TheOriginal, TheScaled, Filter, 0,
+        true, amTransparentColor)
+    else
+      uScale.Resample(NewSize.X, NewSize.Y, TheOriginal, TheScaled, Filter, 0,
+        true, amIgnore);
   end
   else
     TheScaled.Assign(TheOriginal);
@@ -142,19 +194,34 @@ end;
 procedure TSharpenMain.DoSharpen;
 var
   StopWatch: TStopWatch;
+  acm: TAlphaCombineMode;
 begin
   if (TheScaled.Width = 0) or (TheScaled.Height = 0) then
     exit;
   StopWatch := TStopWatch.Create;
   StopWatch.Start;
   if EnableSharpen.Checked then
+  begin
+    if UseAlpha then
+      acm := amPreMultiply
+    else if UseTransparentColor then
+      acm := amTransparentColor
+    else
+      acm := amIgnore;
     // see GetUnsharpParameters
-    uScale.UnsharpMaskParallel(TheScaled, TheSharpened, UnsharpParameters)
+    uScale.UnsharpMaskParallel(TheScaled, TheSharpened, UnsharpParameters, acm);
+  end
   else
     TheSharpened.Assign(TheScaled);
   StopWatch.Stop;
   TimeSharpen.Caption := StopWatch.ElapsedMilliseconds.ToString;
-  DisplaySharpened.SetBounds(-Scrollbox2.HorzScrollBar.Position,-Scrollbox2.VertScrollBar.Position,TheSharpened.Width,TheSharpened.height);
+  DisplaySharpened.SetBounds(-ScrollBox2.HorzScrollBar.Position,
+    -ScrollBox2.VertScrollBar.Position, TheSharpened.Width,
+    TheSharpened.Height);
+  TheDisplay.Assign(TheSharpened);
+  // We change the alphaformat only on TheDisplay to
+  // avoid VCL.Graphics getting mixed up on whether
+  // or not to apply alpha-multiplication.
   DisplaySharpened.Invalidate;
 end;
 
@@ -166,6 +233,7 @@ begin
   AlphaSlider.enabled := EnableSliders;
   RadiusSlider.enabled := EnableSliders;
   ThreshSlider.enabled := EnableSliders;
+  DoScale;
   DoSharpen;
 end;
 
@@ -175,11 +243,12 @@ begin
   TheOriginal := TBitmap.Create;
   TheSharpened := TBitmap.Create;
   TheScaled := TBitmap.Create;
+  TheDisplay := TBitmap.Create;
   AlphaSliderChange(nil);
   RadiusSliderChange(nil);
   ThreshSliderChange(nil);
   With DisplaySharpened do
-  ControlStyle:=ControlStyle+[csOpaque];
+    ControlStyle := ControlStyle + [csOpaque];
 end;
 
 procedure TSharpenMain.FormDestroy(Sender: TObject);
@@ -187,6 +256,7 @@ begin
   TheOriginal.Free;
   TheSharpened.Free;
   TheScaled.Free;
+  TheDisplay.Free;
 end;
 
 function TSharpenMain.GetAlpha: single;
@@ -219,7 +289,7 @@ end;
 
 function TSharpenMain.GetThresh: single;
 begin
-  Result := 1 / 100 * ThreshSlider.Position;
+  Result := 1 / 1000 * ThreshSlider.Position;
 end;
 
 function TSharpenMain.GetUnsharpParameters: TUnsharpParameters;
@@ -229,8 +299,8 @@ begin
     Result.AutoValues(TheScaled.Width, TheScaled.Height);
     AlphaSlider.Position := round(100 * Result.Alpha);
     RadiusSlider.Position := round(100 * Result.Radius);
-    ThreshSlider.Position := round(100 * Result.Thresh);
-    ShowThresh.Caption := 't=' + FloatToStrF(Result.Thresh, ffFixed, 5, 2);
+    ThreshSlider.Position := round(1000 * Result.Thresh);
+    ShowThresh.Caption := 't=' + FloatToStrF(Result.Thresh, ffFixed, 5, 3);
     ShowAlpha.Caption := 'a=' + FloatToStrF(Result.Alpha, ffFixed, 5, 2);
     ShowRadius.Caption := 'r=' + FloatToStrF(Result.Radius, ffFixed, 5, 2);
   end
@@ -240,6 +310,20 @@ begin
     Result.Radius := Radius;
     Result.Thresh := Thresh;
   end;
+  if UseGamma.Checked then
+    Result.Gamma := 0.1 * ShowGamma.Value
+  else
+    Result.Gamma := 1;
+end;
+
+function TSharpenMain.GetUseAlpha: boolean;
+begin
+  Result := Blending.ItemIndex = 1;
+end;
+
+function TSharpenMain.GetUseTransparentColor: boolean;
+begin
+  Result := Blending.ItemIndex = 2;
 end;
 
 procedure TSharpenMain.LoadImageClick(Sender: TObject);
@@ -252,20 +336,40 @@ begin
   try
     wic.LoadFromFile(FODImage.FileName);
     WicToBmp(wic, TheOriginal);
+    DisplayOriginal.Picture:=nil;
+    DisplayOriginal.Transparent:=false;
     DisplayOriginal.Picture.Bitmap := TheOriginal;
+    if UseAlpha then
+      DisplayOriginal.Picture.Bitmap.AlphaFormat := afDefined;
+    if UseTransparentColor then
+    begin
+      ClearAlphaChannel(DisplayOriginal.Picture.Bitmap);
+      DisplayOriginal.Transparent := true;
+    end;
     ShowSize.Caption := TheOriginal.Width.ToString + 'x' +
       TheOriginal.Height.ToString;
   finally
     wic.Free;
   end;
+  // Note that this method of loading bitmaps always
+  // sets its alpha-channel to 255, if it isn't stored
+  // in the file (like ordinary .bmp or .jpg).
   ScalePercentChange(nil);
-  DoScale;
-  DoSharpen;
 end;
 
 procedure TSharpenMain.DisplaySharpenedPaint(Sender: TObject);
 begin
-  BitBlt(DisplaySharpened.Canvas.Handle,0,0,TheSharpened.Width,TheSharpened.Height,TheSharpened.Canvas.Handle,0,0,SRCCopy);
+  // BitBlt(DisplaySharpened.Canvas.Handle, 0, 0, TheSharpened.Width,
+  // TheSharpened.Height, TheSharpened.Canvas.Handle, 0, 0, SRCCopy);
+  DisplaySharpened.Canvas.Brush.Color := ScrollBox2.Color;
+  DisplaySharpened.Canvas.FillRect(DisplaySharpened.Canvas.ClipRect);
+  if UseAlpha then
+    TheDisplay.AlphaFormat := afDefined
+  else
+    TheDisplay.AlphaFormat := afIgnored;
+  if UseTransparentColor then
+    TheDisplay.Transparent := true;
+  DisplaySharpened.Canvas.Draw(0, 0, TheDisplay);
 end;
 
 procedure TSharpenMain.RadiusSliderChange(Sender: TObject);
@@ -283,11 +387,24 @@ begin
   DoSharpen;
 end;
 
+procedure TSharpenMain.ShowGammaChange(Sender: TObject);
+begin
+  if not ShowGamma.enabled then
+    exit;
+  DoSharpen;
+end;
+
 procedure TSharpenMain.ThreshSliderChange(Sender: TObject);
 begin
   if not ThreshSlider.enabled then
     exit;
-  ShowThresh.Caption := 't=' + FloatToStrF(Thresh, ffFixed, 5, 2);
+  ShowThresh.Caption := 't=' + FloatToStrF(Thresh, ffFixed, 5, 3);
+  DoSharpen;
+end;
+
+procedure TSharpenMain.UseGammaClick(Sender: TObject);
+begin
+  ShowGamma.enabled := UseGamma.Checked;
   DoSharpen;
 end;
 

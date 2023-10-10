@@ -25,21 +25,21 @@ object SharpenMain: TSharpenMain
       154
       385)
     object ShowRadius: TLabel
-      Left = 8
+      Left = 5
       Top = 6
       Width = 64
       Height = 15
       Caption = 'ShowRadius'
     end
     object ShowAlpha: TLabel
-      Left = 54
+      Left = 46
       Top = 6
       Width = 60
       Height = 15
       Caption = 'ShowAlpha'
     end
     object ShowThresh: TLabel
-      Left = 104
+      Left = 96
       Top = 6
       Width = 64
       Height = 15
@@ -68,7 +68,7 @@ object SharpenMain: TSharpenMain
       Anchors = [akLeft, akTop, akBottom]
       Enabled = False
       Max = 500
-      Min = -100
+      Min = -200
       Orientation = trVertical
       Frequency = 10
       Position = 150
@@ -82,7 +82,7 @@ object SharpenMain: TSharpenMain
       Height = 186
       Anchors = [akLeft, akTop, akBottom]
       Enabled = False
-      Max = 50
+      Max = 200
       Orientation = trVertical
       TabOrder = 2
       OnChange = ThreshSliderChange
@@ -100,22 +100,22 @@ object SharpenMain: TSharpenMain
         Left = 4
         Top = 18
         Width = 144
-        Height = 31
+        Height = 39
         Margins.Left = 2
         Margins.Top = 1
         Margins.Right = 2
         Margins.Bottom = 1
         Align = alTop
         AutoSize = False
-        Caption = 'r: Radius of Gaussian blur in pixel. Sigma=r/5.'
+        Caption = 'r: Radius of Gaussian blur in pixel. Sigma=0.33*r.'
         WordWrap = True
       end
       object Label6: TLabel
         AlignWithMargins = True
         Left = 4
-        Top = 51
+        Top = 59
         Width = 144
-        Height = 58
+        Height = 54
         Margins.Left = 2
         Margins.Top = 1
         Margins.Right = 2
@@ -130,9 +130,9 @@ object SharpenMain: TSharpenMain
       object Label7: TLabel
         AlignWithMargins = True
         Left = 4
-        Top = 111
+        Top = 115
         Width = 144
-        Height = 58
+        Height = 54
         Margins.Left = 2
         Margins.Top = 1
         Margins.Right = 2
@@ -158,14 +158,14 @@ object SharpenMain: TSharpenMain
     object GroupBox1: TGroupBox
       Left = 1
       Top = 1
-      Width = 107
+      Width = 88
       Height = 74
       Align = alLeft
       Caption = 'Source Image'
       TabOrder = 0
       object ShowSize: TLabel
-        Left = 3
-        Top = 49
+        Left = 8
+        Top = 54
         Width = 49
         Height = 15
         Caption = 'ShowSize'
@@ -181,9 +181,9 @@ object SharpenMain: TSharpenMain
       end
     end
     object GroupBox2: TGroupBox
-      Left = 108
+      Left = 233
       Top = 1
-      Width = 249
+      Width = 228
       Height = 74
       Align = alLeft
       Caption = 'Resampling'
@@ -203,7 +203,7 @@ object SharpenMain: TSharpenMain
         Caption = 'Filter'
       end
       object ShowNewSize: TLabel
-        Left = 164
+        Left = 147
         Top = 44
         Width = 73
         Height = 15
@@ -223,7 +223,7 @@ object SharpenMain: TSharpenMain
       object ShowFilter: TComboBox
         Left = 74
         Top = 41
-        Width = 84
+        Width = 67
         Height = 23
         ItemIndex = 2
         TabOrder = 1
@@ -237,13 +237,20 @@ object SharpenMain: TSharpenMain
       end
     end
     object GroupBox3: TGroupBox
-      Left = 357
+      Left = 461
       Top = 1
-      Width = 185
+      Width = 228
       Height = 74
       Align = alLeft
       Caption = 'Unsharp Mask'
       TabOrder = 2
+      object Label8: TLabel
+        Left = 155
+        Top = 26
+        Width = 62
+        Height = 15
+        Caption = '10*Gamma:'
+      end
       object EnableSharpen: TCheckBox
         Left = 6
         Top = 19
@@ -257,7 +264,7 @@ object SharpenMain: TSharpenMain
       end
       object AutoSharpen: TCheckBox
         Left = 6
-        Top = 42
+        Top = 34
         Width = 143
         Height = 17
         Caption = 'Automatic Parameters'
@@ -266,15 +273,38 @@ object SharpenMain: TSharpenMain
         TabOrder = 1
         OnClick = EnableSharpenClick
       end
+      object UseGamma: TCheckBox
+        Left = 6
+        Top = 52
+        Width = 131
+        Height = 17
+        Caption = 'Gamma Correction'
+        Checked = True
+        State = cbChecked
+        TabOrder = 2
+        OnClick = UseGammaClick
+      end
+      object ShowGamma: TSpinEdit
+        Left = 155
+        Top = 40
+        Width = 72
+        Height = 24
+        MaxValue = 30
+        MinValue = 10
+        TabOrder = 3
+        Value = 16
+        OnChange = ShowGammaChange
+      end
     end
     object GroupBox4: TGroupBox
-      Left = 542
+      Left = 689
       Top = 1
-      Width = 185
+      Width = 158
       Height = 74
       Align = alLeft
       Caption = 'Timings [ms]'
       TabOrder = 3
+      ExplicitTop = 2
       object TimeResample: TLabel
         Left = 84
         Top = 26
@@ -306,6 +336,22 @@ object SharpenMain: TSharpenMain
         Caption = 'Sharpening:'
       end
     end
+    object Blending: TRadioGroup
+      Left = 89
+      Top = 1
+      Width = 144
+      Height = 74
+      Align = alLeft
+      Caption = 'Blending'
+      ItemIndex = 0
+      Items.Strings = (
+        'None'
+        'Use Alpha-channel'
+        'Use Transparent Color')
+      TabOrder = 4
+      OnClick = BlendingClick
+      ExplicitLeft = 125
+    end
   end
   object Panel3: TPanel
     Left = 0
@@ -331,9 +377,9 @@ object SharpenMain: TSharpenMain
       HorzScrollBar.Tracking = True
       VertScrollBar.Tracking = True
       Align = alLeft
+      Color = 4533516
+      ParentColor = False
       TabOrder = 0
-      ExplicitLeft = 0
-      ExplicitTop = 0
       object DisplayOriginal: TImage
         Left = 0
         Top = 0
@@ -350,9 +396,9 @@ object SharpenMain: TSharpenMain
       HorzScrollBar.Tracking = True
       VertScrollBar.Tracking = True
       Align = alClient
+      Color = 4533516
+      ParentColor = False
       TabOrder = 1
-      ExplicitLeft = 361
-      ExplicitTop = 0
       object DisplaySharpened: TPaintBox
         Left = 0
         Top = 0
@@ -375,9 +421,13 @@ object SharpenMain: TSharpenMain
     Top = 312
   end
   object FSD: TFileSaveDialog
-    DefaultExtension = '.bmp'
+    DefaultExtension = '.png'
     FavoriteLinks = <>
-    FileTypes = <>
+    FileTypes = <
+      item
+        DisplayName = ''
+        FileMask = '*.png'
+      end>
     Options = []
     Left = 629
     Top = 257

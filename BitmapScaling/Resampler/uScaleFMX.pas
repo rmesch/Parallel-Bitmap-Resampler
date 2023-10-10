@@ -89,26 +89,29 @@ procedure ZoomResampleParallelThreads(NewWidth, NewHeight: integer;
 /// <param name="SourceRect"> Rectangle in the source which will be resampled, has floating point boundaries for smooth zooms. </param>
 /// <param name="Filter"> Defines the kernel function for resampling </param>
 /// <param name="Radius"> Defines the range of pixels to contribute to the result. Value 0 takes the default radius for the filter. </param>
-/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
+/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
 procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TRectF; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
 type
-  // Radius: Pixel-radius for Gaussian blur. Sigma = Radius/5
+  // Radius: Pixel-radius for Gaussian blur. Sigma = 0.33*Radius
   // Alpha: PixelResult = Alpha*PixelSource + (1-Alpha)*Blur. Alpha>1 sharpens, Alpha=0 is Gaussian blur
   // Thresh: Threshhold. Sharpen/Blur will only be applied if abs(PixelSource-Blur)>Thresh*255.
+  // Gamma: Value for gamma-correction, not yet implemented
   TUnsharpParameters = record
-    Alpha, Radius, Thresh: single;
+    Alpha, Radius, Thresh, Gamma: single;
     procedure AutoValues(Width, Height: integer);
   end;
 
- /// <summary> Applies an unsharp-mask to Source and stores result in Target. Attention: Alpha-channel is copied unchanged. </summary>
-procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters);
+ /// <summary> Applies an unsharp-mask to Source and stores result in Target.  </summary>
+ /// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
+procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters; AlphaCombineMode: TAlphaCombineMode);
 
-/// <summary> Applies an unsharp-mask to Source and stores result in Target using parallel threads.  Attention: Alpha-channel is copied unchanged. </summary>
+/// <summary> Applies an unsharp-mask to Source and stores result in Target using parallel threads.  </summary>
+/// <param name="AlphaCombineMode"> Options for the alpha-channel: amIndependent, amPreMultiply, amIgnore </param>
 procedure UnsharpMaskParallel(Source, Target: TBitmap;
-  Parameters: TUnsharpParameters; ThreadPool: PResamplingThreadPool = nil);
+  Parameters: TUnsharpParameters; AlphaCombineMode: TAlphaCombineMode; ThreadPool: PResamplingThreadPool = nil);
 
 implementation
 
@@ -273,7 +276,7 @@ begin
 
 end;
 
-procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters);
+procedure UnsharpMask(Source, Target: TBitmap; Parameters: TUnsharpParameters; AlphaCombineMode: TAlphaCombineMode);
 var
   ContribsX, ContribsY: TContribArray;
 
@@ -286,10 +289,13 @@ var
   runstart: PBGRAInt;
   Cache: TBGRAIntArray;
   DataSource, DataTarget: TBitmapData;
+  DoGamma: boolean;
 begin
   Width := Source.Width;
   Height := Source.Height;
   Target.SetSize(Width,Height);
+
+  DoGamma:=false;
 
   Assert(Source.Map(TMapAccess.Read, DataSource));
   Assert(Target.Map(TMapAccess.Write, DataTarget));
@@ -306,7 +312,7 @@ begin
     beta := sqrt(1 - Parameters.Alpha);
     sig := 1;
   end;
-  alphaInt := round($800 * $800 * Parameters.Alpha);
+  alphaInt := round(GaussScale * GaussScale * Parameters.Alpha);
   MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
   MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
   rStart := DataSource.GetScanline(0);
@@ -320,7 +326,7 @@ begin
   for y := 0 to Height - 1 do
   begin
     ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig, Parameters.Thresh,
-      rStart, rTStart, runstart, ContribsX, ContribsY);
+      rStart, rTStart, runstart, ContribsX, ContribsY, DoGamma, AlphaCombineMode);
   end;
 
   Source.Unmap(DataSource);
@@ -328,7 +334,7 @@ begin
 end;
 
 procedure UnsharpMaskParallel(Source, Target: TBitmap;
-  Parameters: TUnsharpParameters; ThreadPool: PResamplingThreadPool = nil);
+  Parameters: TUnsharpParameters; AlphaCombineMode: TAlphaCombineMode; ThreadPool: PResamplingThreadPool = nil);
 var
   ContribsX, ContribsY: TContribArray;
 
@@ -344,6 +350,7 @@ var
   yminArray, ymaxArray: TIntArray;
   ThreadIndex, j: integer;
   DataSource, DataTarget: TBitmapData;
+  DoGamma: boolean;
 
   function GetUnsharpProc(Index: integer): TProc;
   begin
@@ -357,7 +364,7 @@ var
         runstart := @Cache[Index][0];
         for y := ymin to ymax do
           ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig,
-            Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY);
+            Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY, DoGamma, AlphaCombineMode);
       end
   end;
 
@@ -386,6 +393,8 @@ begin
 
   bps := DataSource.Pitch;
 
+  DoGamma:=false;
+
   if Parameters.Alpha > 1 then
   begin
     beta := sqrt(Parameters.Alpha - 1);
@@ -396,7 +405,7 @@ begin
     beta := sqrt(1 - Parameters.Alpha);
     sig := 1;
   end;
-  alphaInt := round($800 * $800 * Parameters.Alpha);
+  alphaInt := round(GaussScale * GaussScale * Parameters.Alpha);
   MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
   MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
   rStart := DataSource.GetScanline(0);
@@ -443,9 +452,10 @@ var
   size: integer;
 begin
   size := max(Width, Height);
-  Radius := 1 + sqrt(0.004 * size);
-  Alpha := 2.6;
+  Radius := 0.5 + sqrt(0.007 * size);
+  Alpha := 2.5;
   Thresh := 5 / 256; // 5 color levels
+  Gamma := 1;
 end;
 
 initialization
