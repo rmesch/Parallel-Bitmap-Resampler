@@ -12,8 +12,8 @@ uses
   FMX.Controls.Presentation, FMX.Objects, FMX.Layouts,
   FMX.Edit,
   FMX.EditBox, FMX.SpinBox, FMX.ListBox, System.ImageList, FMX.ImgList
-  //You now need to put uScaleFMX and uScaleCommon into the uses list.
-  , uScaleFMX, uScaleCommon;
+  // You now need to put uScaleFMX and uScaleCommon into the uses list.
+    , uScaleFMX, uScaleCommon;
 
 {$O+}
 
@@ -66,6 +66,9 @@ type
     Button1: TButton;
     Label3: TLabel;
     SD: TSaveDialog;
+    Label4: TLabel;
+    Label5: TLabel;
+    TestKind: TComboBox;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -161,13 +164,13 @@ end;
 procedure TDemoFMXMain.Image2Click(Sender: TObject);
 begin
   if SD.Execute then
-  TheTarget.SaveToFile(SD.filename);
+    TheTarget.SaveToFile(SD.filename);
 end;
 
 procedure TDemoFMXMain.Image3Click(Sender: TObject);
 begin
   if SD.Execute then
-  TheScaled.SaveToFile(SD.filename);
+    TheScaled.SaveToFile(SD.filename);
 end;
 
 procedure TDemoFMXMain.LoadClick(Sender: TObject);
@@ -175,7 +178,7 @@ begin
   if not OD.Execute then
     exit;
   ZoomFact := 1;
-  TheOriginal.LoadFromFile(OD.FileName);
+  TheOriginal.LoadFromFile(OD.filename);
   MakeSourceBitmap;
   DisplaySource;
   UpdateSizes;
@@ -189,7 +192,10 @@ begin
   ZoomFact := 1;
   bm := TTestBitmap.Create;
   try
-    bm.Generate(GetBMWidth(TestSizes.ItemIndex), tkCircles);
+    if TestKind.ItemIndex = 0 then
+      bm.Generate(GetBMWidth(TestSizes.ItemIndex), tkCircles)
+    else
+      LinesAndTextBitmap(bm, GetBMWidth(TestSizes.ItemIndex));
     BitmapVCLToFMX(bm, TheOriginal);
   finally
     bm.Free;
@@ -325,8 +331,8 @@ begin
 end;
 
 const
-  FilterArray: array [0 .. 3] of TFilter = (cfBox, cfBilinear, cfBicubic,
-    cfLanczos);
+  FilterArray: array [0 .. 7] of TFilter = (cfBox, cfBilinear, cfBicubic,
+    cfLanczos, cfMitchell, cfRobidoux, cfRobidouxSharp, cfRobidouxSoft);
 
 procedure TDemoFMXMain.DoScale;
 var

@@ -16,10 +16,18 @@ unit uScaleFMX;
   High quality resampling of FMX-bitmaps using various filters
   and including fast threaded routines.
   Copyright © 2003-2023 Renate Schaaf
-  Inspired by A.Melander, M.Lischke, E.Grange.
+
+  Inspired by A.Melander, M.Lischke, E.Grange. See the doc-folder.
+
+  Thanks for input in https://en.delphipraxis.net/:
+  To Anders Melander for suggesting proper handling of the alpha-channel
+  To Tommi Prami for suggesting better customization of thread pools
+  To Kas Ob. for suggesting adding of additional filters
+
   Supported Delphi-versions: 10.4 and up. The threaded routines might
   not work in 10.3 and below, there were some problems with FMX-TBitmap
   in threads. Right now I can only test 11.3.
+
   The "beef" of the algorithm used is in the routines
   MakeContributors and ProcessRow in uScaleCommon
   *************************************************************** *)
@@ -289,13 +297,10 @@ var
   runstart: PBGRAInt;
   Cache: TBGRAIntArray;
   DataSource, DataTarget: TBitmapData;
-  DoGamma: boolean;
 begin
   Width := Source.Width;
   Height := Source.Height;
   Target.SetSize(Width,Height);
-
-  DoGamma:=false;
 
   Assert(Source.Map(TMapAccess.Read, DataSource));
   Assert(Target.Map(TMapAccess.Write, DataTarget));
@@ -326,7 +331,7 @@ begin
   for y := 0 to Height - 1 do
   begin
     ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig, Parameters.Thresh,
-      rStart, rTStart, runstart, ContribsX, ContribsY, DoGamma, AlphaCombineMode);
+      rStart, rTStart, runstart, ContribsX, ContribsY[y], AlphaCombineMode);
   end;
 
   Source.Unmap(DataSource);
@@ -350,7 +355,6 @@ var
   yminArray, ymaxArray: TIntArray;
   ThreadIndex, j: integer;
   DataSource, DataTarget: TBitmapData;
-  DoGamma: boolean;
 
   function GetUnsharpProc(Index: integer): TProc;
   begin
@@ -364,7 +368,7 @@ var
         runstart := @Cache[Index][0];
         for y := ymin to ymax do
           ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig,
-            Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY, DoGamma, AlphaCombineMode);
+            Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY[y], AlphaCombineMode);
       end
   end;
 
@@ -392,8 +396,6 @@ begin
   Assert(Target.Map(TMapAccess.Write, DataTarget));
 
   bps := DataSource.Pitch;
-
-  DoGamma:=false;
 
   if Parameters.Alpha > 1 then
   begin
@@ -452,7 +454,7 @@ var
   size: integer;
 begin
   size := max(Width, Height);
-  Radius := 0.5 + sqrt(0.007 * size);
+  Radius := 0.5 + sqrt(0.008 * size);
   Alpha := 2.5;
   Thresh := 5 / 256; // 5 color levels
   Gamma := 1;

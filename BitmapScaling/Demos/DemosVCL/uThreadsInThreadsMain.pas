@@ -23,8 +23,7 @@ uses
   System.Generics.Collections, System.SyncObjs, System.Diagnostics,
   // You now need to put uScale and uScaleCommon into the uses clause
   uScale, uScaleCommon, uDirectoryTree,
-  System.ImageList, Vcl.ImgList, Vcl.VirtualImageList,
-  Vcl.BaseImageCollection, Vcl.ImageCollection, Vcl.ComCtrls;
+  System.ImageList, Vcl.ImgList, Vcl.ComCtrls;
 
 const
   MsgUpdate = WM_user + 1;
@@ -102,13 +101,12 @@ type
     ThumbView: TScrollbox;
     TransparencyGroup: TRadioGroup;
     Threading: TRadioGroup;
-    ImageCollection1: TImageCollection;
-    VirtualImageList1: TVirtualImageList;
     NewRoot: TButton;
     OD: TFileOpenDialog;
     Label1: TLabel;
     ThumbSize: TComboBox;
     Sharpen: TCheckBox;
+    ImageList1: TImageList;
     procedure FormCreate(Sender: TObject);
     procedure ThumbViewResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -219,7 +217,7 @@ begin
   DirectoryTree := TDirectoryTree.Create(self);
   DirectoryTree.Parent := Panel2;
   DirectoryTree.Align := alClient;
-  DirectoryTree.Images := VirtualImageList1;
+  DirectoryTree.Images := ImageList1;
   DirectoryTree.OnChange := DirectoryTreeChange;
   DirectoryTree.HideSelection:=false;
   DirectoryTree.NewRootFolder(TPath.GetPicturesPath);

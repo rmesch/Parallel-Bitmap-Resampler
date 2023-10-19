@@ -16,10 +16,18 @@ unit uScale;
   High quality resampling of VCL-bitmaps using various filters
   (Box, Bilinear, Bicubic, Lanczos etc.) and including fast threaded routines.
   Copyright © 2003-2023 Renate Schaaf
-  Inspired by A.Melander, M.Lischke, E.Grange.
+
+  Inspired by A.Melander, M.Lischke, E.Grange. See the doc-folder.
+
+  Thanks for input in https://en.delphipraxis.net/:
+  To Anders Melander for suggesting proper handling of the alpha-channel
+  To Tommi Prami for suggesting better customization of thread pools
+  To Kas Ob. for suggesting adding of additional filters
+
   Supported Delphi-versions: 10.x and up, probably works with
   some earlier versions, but untested. Right now I can only test on 11.3.
   Any feedback on earlier versions welcome.
+
   The "beef" of the algorithm used is in the routines
   MakeContributors and ProcessRow in uScaleCommon
   *************************************************************** *)
@@ -113,6 +121,8 @@ procedure ZoomResampleParallelTasks(NewWidth, NewHeight: integer;
   const Source, Target: TBitmap; SourceRect: TFloatRect; Filter: TFilter;
   Radius: single; AlphaCombineMode: TAlphaCombineMode);
 
+//Addition: Parallel Unsharp-Mask
+
 type
   // Radius: Pixel-radius for Gaussian blur. Sigma = Radius/SigmaInv.
   // Value of SigmaInv: See function Gauss in uScaleCommon.
@@ -127,11 +137,20 @@ type
     procedure AutoValues(Width, Height: integer);
   end;
 
-  /// <summary> Applies an unsharp-mask to Source and stores result in Target. Attention: Alpha-channel is copied unchanged. </summary>
+  /// <summary> Applies an unsharp-mask to Source and stores result in Target.  </summary>
+  ///  <param name="Source"> Source-Bitmap. Will be set to pf32bit. Works best if Source.Alphaformat=afIgnored </param>
+  ///  <param name="Target"> Target-Bitmap. Will be set to pf32bit and sized to Source. </param>
+  ///  <param name="Parameters"> Parameters: Alpha, Radius, Threshhold, Gamma. See TUnsharpParameters. </param>
+  ///  <param name="AlphaCombineMode"> Options for alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
 procedure UnsharpMask(const Source, Target: TBitmap;
   Parameters: TUnsharpParameters; AlphaCombineMode: TAlphaCombineMode);
 
-/// <summary> Applies an unsharp-mask to Source and stores result in Target using parallel threads.  Attention: Alpha-channel is copied unchanged. </summary>
+ /// <summary> Applies an unsharp-mask to Source and stores result in Target using parallel threads.</summary>
+ /// <param name="Source"> Source-Bitmap. Will be set to pf32bit. Works best if Source.Alphaformat=afIgnored </param>
+ ///  <param name="Target"> Target-Bitmap. Will be set to pf32bit and sized to Source. </param>
+ ///  <param name="Parameters"> Parameters: Alpha, Radius, Threshhold, Gamma. See TUnsharpParameters. </param>
+ ///  <param name="AlphaCombineMode"> Options for alpha-channel: amIndependent, amPreMultiply, amIgnore, amTransparentColor </param>
+ ///  <param name="ThreadPool"> Pointer to the TResamplingThreadpool to be used, nil uses a default thread pool</param>
 procedure UnsharpMaskParallel(const Source, Target: TBitmap;
   Parameters: TUnsharpParameters; AlphaCombineMode: TAlphaCombineMode;
   ThreadPool: PResamplingThreadPool = nil);
@@ -484,7 +503,6 @@ var
   sig, alphaInt: integer;
   runstart: PBGRAInt;
   Cache: TBGRAIntArray;
-  Temp: TBitmap;
   DoGamma, DoSetAlphaFormat: boolean;
   TransColor: TColor;
 begin
@@ -511,46 +529,46 @@ begin
 
   bps := -4 * Width;
   DoGamma := Parameters.Gamma <> 1;
-  Temp := TBitmap.Create;
-  try
-    if DoGamma then
-    begin
-      MakeGammaTables(Parameters.Gamma);
-      DecodeGamma(Source, Temp);
-    end
-    else
-      Temp.Assign(Source);
+  if DoGamma then
+  begin
+    MakeGammaTables(Parameters.Gamma);
+  end;
 
-    if Parameters.Alpha > 1 then
-    begin
-      beta := sqrt(Parameters.Alpha - 1);
-      sig := -1;
-    end
-    else
-    begin
-      beta := sqrt(1 - Parameters.Alpha);
-      sig := 1;
-    end;
+  if Parameters.Alpha > 1 then
+  begin
+    beta := sqrt(Parameters.Alpha - 1);
+    sig := -1;
+  end
+  else
+  begin
+    beta := sqrt(1 - Parameters.Alpha);
+    sig := 1;
+  end;
 
-    alphaInt := round(GaussScale * GaussScale * Parameters.Alpha);
-    MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
-    MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
-    rStart := Temp.Scanline[0];
-    rTStart := Target.Scanline[0];
+  alphaInt := round(GaussScale * GaussScale * Parameters.Alpha);
+  MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
+  MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
+  rStart := Source.Scanline[0];
+  rTStart := Target.Scanline[0];
 
-    SetLength(Cache, Width);
-    runstart := @Cache[0];
+  SetLength(Cache, Width);
+  runstart := @Cache[0];
 
-    // Compute colors for each target row at y
+  // Compute colors for each target row at y
+  if not DoGamma then
+
     for y := 0 to Height - 1 do
     begin
       ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig, Parameters.Thresh,
-        rStart, rTStart, runstart, ContribsX, ContribsY, DoGamma,
+        rStart, rTStart, runstart, ContribsX, ContribsY[y], AlphaCombineMode);
+    end
+  else
+    for y := 0 to Height - 1 do
+    begin
+      ProcessRowUnsharpGamma(y, bps, 0, Width - 1, alphaInt, sig,
+        Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY[y],
         AlphaCombineMode);
     end;
-  finally
-    Temp.Free;
-  end;
   if AlphaCombineMode = amTransparentColor then
     TransferTransparency(Target, TransColor)
   else if DoSetAlphaFormat then
@@ -577,7 +595,6 @@ var
   yChunkCount, ThreadCount, yChunk: integer;
   yminArray, ymaxArray: TIntArray;
   ThreadIndex, j: integer;
-  Temp: TBitmap;
   DoGamma, DoSetAlphaFormat: boolean;
   TransColor: TColor;
 
@@ -593,8 +610,25 @@ var
         runstart := @Cache[Index][0];
         for y := ymin to ymax do
           ProcessRowUnsharp(y, bps, 0, Width - 1, alphaInt, sig,
-            Parameters.Thresh, rStart, rTStart, runstart, ContribsX, ContribsY,
-            DoGamma, AlphaCombineMode);
+            Parameters.Thresh, rStart, rTStart, runstart, ContribsX,
+            ContribsY[y], AlphaCombineMode);
+      end
+  end;
+
+  function GetUnsharpGammaProc(Index: integer): TProc;
+  begin
+    Result := procedure
+      var
+        ymin, ymax, y: integer;
+        runstart: PBGRAInt;
+      begin
+        ymin := yminArray[Index];
+        ymax := ymaxArray[Index];
+        runstart := @Cache[Index][0];
+        for y := ymin to ymax do
+          ProcessRowUnsharpGamma(y, bps, 0, Width - 1, alphaInt, sig,
+            Parameters.Thresh, rStart, rTStart, runstart, ContribsX,
+            ContribsY[y], AlphaCombineMode);
       end
   end;
 
@@ -636,64 +670,62 @@ begin
   bps := -4 * Width;
 
   DoGamma := Parameters.Gamma <> 1;
-  Temp := TBitmap.Create;
-  try
-    if DoGamma then
-    begin
-      MakeGammaTables(Parameters.Gamma);
-      DecodeGamma(Source, Temp);
-    end
+  if DoGamma then
+  begin
+    MakeGammaTables(Parameters.Gamma);
+  end;
+
+  if Parameters.Alpha > 1 then
+  begin
+    beta := sqrt(Parameters.Alpha - 1);
+    sig := -1;
+  end
+  else
+  begin
+    beta := sqrt(1 - Parameters.Alpha);
+    sig := 1;
+  end;
+  alphaInt := round(GaussScale * GaussScale * Parameters.Alpha);
+  MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
+  MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
+  rStart := Source.Scanline[0];
+  rTStart := Target.Scanline[0];
+
+  yChunkCount := max(Min(Height div _ChunkHeight + 1, TP.ThreadCount), 1);
+  ThreadCount := yChunkCount;
+
+  SetLength(yminArray, ThreadCount);
+  SetLength(ymaxArray, ThreadCount);
+
+  yChunk := Height div yChunkCount;
+
+  for j := 0 to yChunkCount - 1 do
+  begin
+    yminArray[j] := j * yChunk;
+    if j < yChunkCount - 1 then
+      ymaxArray[j] := (j + 1) * yChunk - 1
     else
-      Temp.Assign(Source);
+      ymaxArray[j] := Height - 1;
+  end;
 
-    if Parameters.Alpha > 1 then
-    begin
-      beta := sqrt(Parameters.Alpha - 1);
-      sig := -1;
-    end
-    else
-    begin
-      beta := sqrt(1 - Parameters.Alpha);
-      sig := 1;
-    end;
-    alphaInt := round(GaussScale * GaussScale * Parameters.Alpha);
-    MakeGaussContributors(Parameters.Radius, beta, Width, ContribsX);
-    MakeGaussContributors(Parameters.Radius, beta, Height, ContribsY);
-    rStart := Temp.Scanline[0];
-    rTStart := Target.Scanline[0];
-
-    yChunkCount := max(Min(Height div _ChunkHeight + 1, TP.ThreadCount), 1);
-    ThreadCount := yChunkCount;
-
-    SetLength(yminArray, ThreadCount);
-    SetLength(ymaxArray, ThreadCount);
-
-    yChunk := Height div yChunkCount;
-
-    for j := 0 to yChunkCount - 1 do
-    begin
-      yminArray[j] := j * yChunk;
-      if j < yChunkCount - 1 then
-        ymaxArray[j] := (j + 1) * yChunk - 1
-      else
-        ymaxArray[j] := Height - 1;
-    end;
-
-    SetLength(Cache, ThreadCount);
-    for ThreadIndex := 0 to ThreadCount - 1 do
-      SetLength(Cache[ThreadIndex], Width);
-
+  SetLength(Cache, ThreadCount);
+  for ThreadIndex := 0 to ThreadCount - 1 do
+    SetLength(Cache[ThreadIndex], Width);
+  if not DoGamma then
     for ThreadIndex := 0 to ThreadCount - 1 do
     begin
       TP.ResamplingThreads[ThreadIndex].RunAnonProc
         (GetUnsharpProc(ThreadIndex));
-    end;
+    end
+  else
     for ThreadIndex := 0 to ThreadCount - 1 do
     begin
-      TP.ResamplingThreads[ThreadIndex].Done.Waitfor(INFINITE);
+      TP.ResamplingThreads[ThreadIndex].RunAnonProc
+        (GetUnsharpGammaProc(ThreadIndex));
     end;
-  finally
-    Temp.Free;
+  for ThreadIndex := 0 to ThreadCount - 1 do
+  begin
+    TP.ResamplingThreads[ThreadIndex].Done.Waitfor(INFINITE);
   end;
   if AlphaCombineMode = amTransparentColor then
     TransferTransparency(Target, TransColor)
@@ -711,7 +743,7 @@ var
   size: integer;
 begin
   size := max(Width, Height);
-  Radius := 0.5 + sqrt(0.007 * size);
+  Radius := 0.5 + sqrt(0.008 * size);
   Alpha := 2.5;
   Thresh := 5 / 256; // 5 color levels
   Gamma := 1;

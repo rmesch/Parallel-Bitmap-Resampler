@@ -239,8 +239,8 @@ begin
 end;
 
 const
-  FilterArray: array [0 .. 3] of TFilter = (cfBox, cfBilinear, cfBicubic,
-    cfLanczos);
+  FilterArray: array [0 .. 7] of TFilter = (cfBox, cfBilinear, cfBicubic,
+    cfLanczos, cfMitchell, cfRobidoux, cfRobidouxSharp, cfRobidouxSoft);
 
 type
   TScaleProc = procedure(t: double) of object;

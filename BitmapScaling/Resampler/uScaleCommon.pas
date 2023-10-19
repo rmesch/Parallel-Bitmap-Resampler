@@ -43,11 +43,12 @@ uses
 
 type
   // Filter types
-  TFilter = (cfBox, cfBilinear, cfBicubic, cfMine, cfLanczos, cfBSpline);
+  TFilter = (cfBox, cfBilinear, cfBicubic, cfMine, cfLanczos, cfBSpline,
+    cfMitchell, cfRobidoux, cfRobidouxSharp, cfRobidouxSoft);
 
 const
   // Default radii for the filters, can be made a tad smaller for performance
-  DefaultRadius: array [TFilter] of single = (0.5, 1, 2, 2, 3, 2);
+  DefaultRadius: array [TFilter] of single = (0.5, 1, 2, 2, 3, 2, 2, 2, 2, 2);
 
 type
   // happens right now, if you use a custom thread pool which has not been initialized
@@ -176,10 +177,15 @@ procedure MakeGaussContributors(r, fact: single; SourceSize: integer;
 
 procedure ProcessRowUnsharp(y, bps, xmin, xmax, alphaInt, sig: integer;
   Thresh: single; rStart, rTStart: PByte; runstart: PBGRAInt;
-  const ContribsX, ContribsY: TContribArray; DoGamma: boolean;
+  const ContribsX: TContribArray; const yContrib: TContributor;
   Acm: TAlphaCombineMode); inline;
 
-//constants for scaling and unscaling the Gauss-weights
+procedure ProcessRowUnsharpGamma(y, bps, xmin, xmax, alphaInt, sig: integer;
+  Thresh: single; rStart, rTStart: PByte; runstart: PBGRAInt;
+  const ContribsX: TContribArray; const yContrib: TContributor;
+  Acm: TAlphaCombineMode); inline;
+
+// constants for scaling and unscaling the Gauss-weights
 const
   GaussPrecision = 10;
   GaussScale = 1 shl GaussPrecision;
@@ -190,10 +196,11 @@ const
 
 type
   TGammaTable8Bit = array [byte] of byte;
+  TGammaTable10Bit = array [byte] of word;
 
 var
   GammaEncodingTable: TGammaTable8Bit;
-  GammaDecodingTable: TGammaTable8Bit;
+  GammaDecodingTable: TGammaTable10Bit;
 
 procedure MakeGammaTables(gamma: double);
 
@@ -210,7 +217,7 @@ begin
   gammaInv := 1 / gamma;
   for b := 0 to $FF do
   begin
-    GammaDecodingTable[b] := round($FF * Power(b * ByteScale, gamma));
+    GammaDecodingTable[b] := round($3FF * Power(b * ByteScale, gamma));
     GammaEncodingTable[b] := round($FF * Power(b * ByteScale, gammaInv));
   end;
 end;
@@ -303,9 +310,82 @@ begin
     Result := 0;
 end;
 
+// The following filters are based on the Mitchell-Netravali filters with
+// restricting the parameters B and C to the "good" line B + 2*C = 1.
+// We have eliminated B this way and scaled the filter to [-1,1].
+// See https://en.wikipedia.org/wiki/Mitchell%E2%80%93Netravali_filters
+// Thanks to Kas Ob. for suggesting them in https://en.delphipraxis.net/
+const
+  C_M = 1 / 3;
+
+  // Mitchell filter used by ImageMagick
+function Mitchell(x: double): double; inline;
+begin
+  x := abs(x);
+  if x < 0.5 then
+    Result := (8 + 32 * C_M) * x * x * x - (8 + 24 * C_M) * x * x + 4 / 3 +
+      4 / 3 * C_M
+  else if x < 1 then
+    Result := -(8 / 3 + 32 / 3 * C_M) * x * x * x + (8 + 24 * C_M) * x * x -
+      (8 + 16 * C_M) * x + 8 / 3 + 8 / 3 * C_M
+  else
+    Result := 0;
+end;
+
+const
+  C_R = 0.3109;
+
+  // Robidoux filter
+function Robidoux(x: double): double; inline;
+begin
+  x := abs(x);
+  if x < 0.5 then
+    Result := (8 + 32 * C_R) * x * x * x - (8 + 24 * C_R) * x * x + 4 / 3 +
+      4 / 3 * C_R
+  else if x < 1 then
+    Result := -(8 / 3 + 32 / 3 * C_R) * x * x * x + (8 + 24 * C_R) * x * x -
+      (8 + 16 * C_R) * x + 8 / 3 + 8 / 3 * C_R
+  else
+    Result := 0;
+end;
+
+const
+  C_RS = 0.3690;
+
+  // Robidoux-Sharp filter
+function RobidouxSharp(x: double): double; inline;
+begin
+  x := abs(x);
+  if x < 0.5 then
+    Result := (8 + 32 * C_RS) * x * x * x - (8 + 24 * C_RS) * x * x + 4 / 3 + 4
+      / 3 * C_RS
+  else if x < 1 then
+    Result := -(8 / 3 + 32 / 3 * C_RS) * x * x * x + (8 + 24 * C_RS) * x * x -
+      (8 + 16 * C_RS) * x + 8 / 3 + 8 / 3 * C_RS
+  else
+    Result := 0;
+end;
+
+const
+  C_RD = 0.1602;
+
+  // Robidoux-Soft filter
+function RobidouxSoft(x: double): double; inline;
+begin
+  x := abs(x);
+  if x < 0.5 then
+    Result := (8 + 32 * C_RD) * x * x * x - (8 + 24 * C_RD) * x * x + 4 / 3 + 4
+      / 3 * C_RD
+  else if x < 1 then
+    Result := -(8 / 3 + 32 / 3 * C_RD) * x * x * x + (8 + 24 * C_RD) * x * x -
+      (8 + 16 * C_RD) * x + 8 / 3 + 8 / 3 * C_RD
+  else
+    Result := 0;
+end;
+
 const
   FilterFunctions: array [TFilter] of TFilterFunction = (Box, Linear, Bicubic,
-    Mine, Lanczos, BSpline);
+    Mine, Lanczos, BSpline, Mitchell, Robidoux, RobidouxSharp, RobidouxSoft);
 
   PrecisionFacts: array [TPrecision] of integer = ($100, $800);
   PreMultPrecision = 1 shl 2;
@@ -754,10 +834,12 @@ end;
 { TResamplingThreadPool }
 
 procedure TResamplingThreadPool.Finalize;
+var
+  i: integer;
 begin
   if not Initialized then
     exit;
-  for var i: integer := 0 to Length(fResamplingThreads) - 1 do
+  for i := 0 to Length(fResamplingThreads) - 1 do
   begin
     fResamplingThreads[i].Terminate;
     fResamplingThreads[i].Wakeup.SetEvent;
@@ -771,6 +853,7 @@ end;
 
 procedure TResamplingThreadPool.Initialize(aMaxThreadCount: integer;
   aPriority: TThreadpriority);
+var i: integer;
 begin
   if Initialized then
     Finalize;
@@ -778,7 +861,7 @@ begin
   fThreadCount := max(aMaxThreadCount, 2);
   SetLength(fResamplingThreads, fThreadCount);
 
-  for var i: integer := 0 to Length(ResamplingThreads) - 1 do
+  for i := 0 to Length(ResamplingThreads) - 1 do
   begin
     fResamplingThreads[i] := TResamplingThread.Create;
     fResamplingThreads[i].Priority := aPriority;
@@ -815,10 +898,10 @@ const
   // sigmaInv = 2.14596602628934723963618357029; //O.1*Gauss(0)
   // sigmaInv=3.7169221888498384469524067613045; //0.001*Gauss(0) fact=0.27
   sigma = 1 / sigmaInv;
+  // sigma = 0.424660891294479;
+  // sigmaInv = 1 / sigma;
 
 function Gauss(x: double): double; inline;
-var
-  scale: double;
 begin
   if x < 0 then
   begin
@@ -829,20 +912,28 @@ begin
     Result := 0
   else
   begin
-    scale := sigmaInv / Sqrt(2 * Pi);
-    Result := scale * exp(-1 / 2 * x * x * sigmaInv * sigmaInv);
+    // scale := sigmaInv / Sqrt(2 * Pi);
+    // no need to multiply by scale, weights get normalized anyway.
+    Result := exp(-1 / 2 * x * x * sigmaInv * sigmaInv);
   end;
 end;
 
-// Simpson's rule.
+// Simpson's rule. Assumes x1 < x2.
 function GaussIntegral(x1, x2: double): double; inline;
 var
   xmid: double;
 begin
+  if (x2 < -1) or (x1 > 1) then
+  begin
+    Result := 0;
+    exit;
+  end;
+  // intersect with support
   x1 := max(x1, -1);
   x2 := Min(x2, 1);
   xmid := 0.5 * (x1 + x2);
   Result := 1 / 6 * (x2 - x1) * (Gauss(x1) + Gauss(x2) + 4 * Gauss(xmid));
+  // Result:=(x2-x1)*Gauss(xmid);
 end;
 
 type
@@ -865,12 +956,13 @@ procedure MakeGaussContributors(r, fact: single; SourceSize: integer;
 
 var
   xCenter: double;
-  x, j: integer;
+  x, j, sumInt: integer;
   x1, x2, delta: double;
   TrueMin, TrueMax, Mx: integer;
   RealWeights: TDoublearray;
   StandardWeights: TIntArray;
   sum, scale, dw: double;
+  IntCorrection: integer;
 begin
   SetLength(Contribs, SourceSize);
   // First we compute StandardWeights for the blur,
@@ -891,7 +983,7 @@ begin
     sum := sum + RealWeights[j];
   end;
   if sum = 0 then
-    //never happens
+    // never happens
     scale := 1
   else
     scale := 1 / sum;
@@ -904,8 +996,15 @@ begin
   // When applied horizontally and vertically, weights sum up
   // to GaussScale*GaussScale*abs(1-alpha).
   SetLength(StandardWeights, Length(RealWeights));
+  sumInt := 0;
   for j := 0 to Length(StandardWeights) - 1 do
-    StandardWeights[j] := round(GaussScale * fact * scale * RealWeights[j]);
+  begin
+    StandardWeights[j] := round(fact * scale * RealWeights[j] * GaussScale);
+    inc(sumInt, StandardWeights[j]);
+  end;
+  // Make sure the integer-scaled weights sum up to integer-scaled abs(1-alpha)
+  IntCorrection := round(fact * GaussScale) - sumInt;
+  inc(StandardWeights[(TrueMax - TrueMin + 1) div 2], IntCorrection);
 
   for x := 0 to SourceSize - 1 do
   begin
@@ -924,52 +1023,27 @@ begin
       Contribs[x].Weights := StandardWeights
     else
     // radius-interval intersects boundary. Assume
-    // boundary-pixel to be repeated.
-    // I'm sure there's a smarter way to code this :)
+    // boundary-pixels to be mirrored.
     begin
-      SetLength(RealWeights, Contribs[x].High + 1);
       SetLength(Contribs[x].Weights, Contribs[x].High + 1);
-      x1 := delta * (Contribs[x].Min - xCenter);
-      sum := 0;
       for j := 0 to Contribs[x].High do
-      begin
-        x2 := x1 + delta;
-        RealWeights[j] := GaussIntegral(x1, x2);
-        x1 := x2;
-        sum := sum + RealWeights[j];
-      end;
+        Contribs[x].Weights[j] := StandardWeights
+          [j + Contribs[x].Min - TrueMin];
       for j := TrueMin - Contribs[x].Min to -1 do
-      begin
-        // assume the first pixel to be repeated
-        x1 := delta * (Contribs[x].Min + j - xCenter);
-        x2 := x1 + delta;
-        dw := GaussIntegral(x1, x2);
-        RealWeights[0] := RealWeights[0] + dw;
-        sum := sum + dw;
-      end;
+        // mirror bitmap at first pixel
+        inc(Contribs[x].Weights[-j],
+          StandardWeights[j + Contribs[x].Min - TrueMin]);
       for j := Contribs[x].High + 1 to TrueMax - Contribs[x].Min do
-      begin
-        // assume the last pixel to be repeated
-        x1 := delta * (Contribs[x].Min + j - xCenter);
-        x2 := x1 + delta;
-        dw := GaussIntegral(x1, x2);
-        RealWeights[Contribs[x].High] := RealWeights[Contribs[x].High] + dw;
-        sum := sum + dw;
-      end;
-      if sum = 0 then
-        scale := 1
-      else
-        scale := 1 / sum;
-      for j := 0 to Contribs[x].High do
-        Contribs[x].Weights[j] :=
-          round(GaussScale * fact * scale * RealWeights[j]);
+        // mirror bitmap at last pixel
+        inc(Contribs[x].Weights[2 * Contribs[x].High - j],
+          StandardWeights[j + Contribs[x].Min - TrueMin]);
     end;
   end; { for x }
 end;
 
 procedure ProcessRowUnsharp(y, bps, xmin, xmax, alphaInt, sig: integer;
   Thresh: single; rStart, rTStart: PByte; runstart: PBGRAInt;
-  const ContribsX, ContribsY: TContribArray; DoGamma: boolean;
+  const ContribsX: TContribArray; const yContrib: TContributor;
   Acm: TAlphaCombineMode);
 var
   ps, pT: PBGRA;
@@ -998,14 +1072,14 @@ begin
   // Apply Blur-Weights vertically,
   // Store results in Cache-Array.
   // run walks along the Cache-Array.
-  miny := ContribsY[y].Min;
-  highy := ContribsY[y].High;
+  miny := yContrib.Min;
+  highy := yContrib.High;
   rs := rStart;
   rT := rTStart;
   inc(rs, bps * miny);
   inc(rT, bps * y);
   inc(rs, 4 * xmin);
-  Weighty := @ContribsY[y].Weights[0];
+  Weighty := @yContrib.Weights[0];
   ps := PBGRA(rs);
   run := runstart;
   Weight := Weighty^;
@@ -1022,9 +1096,9 @@ begin
     end
     else
     begin
-      run.b := Weight * ps.b * ps.a div 256;
-      run.g := Weight * ps.g * ps.a div 256;
-      run.r := Weight * ps.r * ps.a div 256;
+      run.b := (Weight * ps.b * ps.a) shr 8;
+      run.g := (Weight * ps.g * ps.a) shr 8;
+      run.r := (Weight * ps.r * ps.a) shr 8;
       run.a := Weight * ps.a;
     end;
     inc(ps);
@@ -1051,9 +1125,9 @@ begin
       end
       else if ps.a > 0 then
       begin
-        inc(run.b, Weight * ps.b * ps.a div 256);
-        inc(run.g, Weight * ps.g * ps.a div 256);
-        inc(run.r, Weight * ps.r * ps.a div 256);
+        inc(run.b, (Weight * ps.b * ps.a) shr 8);
+        inc(run.g, (Weight * ps.g * ps.a) shr 8);
+        inc(run.r, (Weight * ps.r * ps.a) shr 8);
         inc(run.a, Weight * ps.a);
       end;
       inc(ps);
@@ -1148,17 +1222,207 @@ begin
     end
     else
       pT^ := ps^;
-    if DoGamma then
-    begin
-      pT.b := GammaEncodingTable[pT.b];
-      pT.g := GammaEncodingTable[pT.g];
-      pT.r := GammaEncodingTable[pT.r];
-    end;
     inc(pT);
     inc(ps);
   end; // for x
 end;
 
+procedure ProcessRowUnsharpGamma(y, bps, xmin, xmax, alphaInt, sig: integer;
+  Thresh: single; rStart, rTStart: PByte; runstart: PBGRAInt;
+  const ContribsX: TContribArray; const yContrib: TContributor;
+  Acm: TAlphaCombineMode);
+var
+  ps, pT: PBGRA;
+  rs, rT: PByte;
+  x, i, j: integer;
+  highx, highy, minx, miny: integer;
+  Weightx, Weighty: PInteger;
+  Weight: integer;
+  Total: TBGRAInt;
+  run: PBGRAInt;
+  delta, scale: integer;
+  threshInt: integer;
+  DoApply: boolean;
+  jump: integer;
+  Alpha: byte;
+  AlphaGamma, ScaleGamma: integer;
+  psScaled: TBGRAInt;
+begin
+  // scaled abs(1-alpha):
+  scale := abs(GaussScale * GaussScale - alphaInt);
+
+  // scales Thresh*255 by GaussScale*GaussScale*abs(1-alpha),
+  // which is the sum of the Gauss-Weights.
+  // Needed to scale the difference of SourcePixel-Blur
+  // to the right order of magnitude.
+  threshInt := round(scale * Thresh * 255);
+
+  AlphaGamma := alphaInt div 4;
+  ScaleGamma := scale shr 2;
+
+  // Apply Blur-Weights vertically,
+  // Store results in Cache-Array.
+  // run walks along the Cache-Array.
+  miny := yContrib.Min;
+  highy := yContrib.High;
+  rs := rStart;
+  rT := rTStart;
+  inc(rs, bps * miny);
+  inc(rT, bps * y);
+  inc(rs, 4 * xmin);
+  Weighty := @yContrib.Weights[0];
+  ps := PBGRA(rs);
+  run := runstart;
+  Weight := Weighty^;
+  x := xmax - xmin + 1;
+  while x > 0 do
+  begin
+    if Acm in [amIgnore, amIndependent] then
+    begin
+      run.b := (Weight * GammaDecodingTable[ps.b]) shr 2;
+      run.g := (Weight * GammaDecodingTable[ps.g]) shr 2;
+      run.r := (Weight * GammaDecodingTable[ps.r]) shr 2;
+      if Acm = amIndependent then
+        run.a := Weight * ps.a;
+    end
+    else
+    begin
+      run.b := (Weight * GammaDecodingTable[ps.b] * ps.a) shr 10;
+      run.g := (Weight * GammaDecodingTable[ps.g] * ps.a) shr 10;
+      run.r := (Weight * GammaDecodingTable[ps.r] * ps.a) shr 10;
+      run.a := Weight * ps.a;
+    end;
+    inc(ps);
+    inc(run);
+    dec(x);
+  end; // for x
+  inc(Weighty);
+  inc(rs, bps);
+  for j := 1 to highy do
+  begin
+    ps := PBGRA(rs);
+    run := runstart;
+    Weight := Weighty^;
+    x := xmax - xmin + 1;
+    while x > 0 do
+    begin
+      if Acm in [amIgnore, amIndependent] then
+      begin
+        inc(run.b, (Weight * GammaDecodingTable[ps.b]) shr 2);
+        inc(run.g, (Weight * GammaDecodingTable[ps.g]) shr 2);
+        inc(run.r, (Weight * GammaDecodingTable[ps.r]) shr 2);
+        if Acm = amIndependent then
+          inc(run.a, Weight * ps.a);
+      end
+      else if ps.a > 0 then
+      begin
+        inc(run.b, (Weight * GammaDecodingTable[ps.b] * ps.a) shr 10);
+        inc(run.g, (Weight * GammaDecodingTable[ps.g] * ps.a) shr 10);
+        inc(run.r, (Weight * GammaDecodingTable[ps.r] * ps.a) shr 10);
+        inc(run.a, Weight * ps.a);
+      end;
+      inc(ps);
+      inc(run);
+      dec(x);
+    end; // for x
+    inc(Weighty);
+    inc(rs, bps);
+  end; // for j
+
+  pT := PBGRA(rT);
+  rs := rStart;
+  inc(rs, bps * y);
+  ps := PBGRA(rs);
+  inc(ps, xmin);
+  inc(pT, xmin);
+  // ps and pT now need to be at the same location to do the sharpening
+  run := runstart;
+  jump := xmin;
+  for x := xmin to xmax do
+  begin
+    // Apply blur-weights horizontally to CacheArray,
+    // store result in Total. Total is (scaled) blur at x.
+    minx := ContribsX[x].Min;
+    highx := ContribsX[x].High;
+    Weightx := @ContribsX[x].Weights[0];
+    inc(run, minx - jump);
+    Weight := Weightx^;
+    Total.b := Weight * run.b;
+    Total.g := Weight * run.g;
+    Total.r := Weight * run.r;
+    if Acm <> amIgnore then
+      Total.a := Weight * run.a;
+
+    inc(Weightx);
+    inc(run);
+    for i := 1 to highx do
+    begin
+
+      Weight := Weightx^;
+      inc(Total.b, Weight * run.b);
+      inc(Total.g, Weight * run.g);
+      inc(Total.r, Weight * run.r);
+      if Acm <> amIgnore then
+        inc(Total.a, Weight * run.a);
+
+      inc(Weightx);
+      inc(run);
+    end;
+    jump := highx + 1 + minx;
+
+    // Total now holds the values for GaussScale*GaussScale*abs(1-alpha)*Blur
+
+    // Scale ps to this order of magnitude so the threshhold
+    // can be checked correctly.
+    psScaled.b := (scale * GammaDecodingTable[ps.b]) shr 2;
+    psScaled.g := (scale * GammaDecodingTable[ps.g]) shr 2;
+    psScaled.r := (scale * GammaDecodingTable[ps.r]) shr 2;
+    delta := max(max(abs(Total.r - psScaled.r), abs(Total.b - psScaled.b)),
+      abs(Total.g - psScaled.g));
+    DoApply := delta > threshInt;
+    if DoApply then
+    begin
+      // if alpha > 1 the blur needs to be subtracted (sig=-1),
+      // otherwise added (sig=1).
+      Total.b := sig * Total.b + AlphaGamma * GammaDecodingTable[ps.b];
+      Total.g := sig * Total.g + AlphaGamma * GammaDecodingTable[ps.g];
+      Total.r := sig * Total.r + AlphaGamma * GammaDecodingTable[ps.r];
+      if Acm <> amIgnore then
+        Total.a := sig * Total.a + alphaInt * ps.a;
+      if Acm in [amIgnore, amIndependent] then
+      begin
+        pT.b := Min((max(Total.b, 0) + GaussRound) shr GaussShift, 255);
+        pT.g := Min((max(Total.g, 0) + GaussRound) shr GaussShift, 255);
+        pT.r := Min((max(Total.r, 0) + GaussRound) shr GaussShift, 255);
+        if Acm = amIndependent then
+          pT.a := Min((max(Total.a, 0) + GaussRound) shr GaussShift, 255);
+      end
+      else
+      begin
+        Alpha := Min((max(Total.a, 0) + GaussRound) shr GaussShift, 255);
+        if Alpha = 0 then
+          pT^ := Default (TBGRA)
+        else
+        begin
+          pT.b := Min((max(Total.b div Alpha, 0) + GaussRoundAlpha)
+            shr GaussShiftAlpha, 255);
+          pT.g := Min((max(Total.g div Alpha, 0) + GaussRoundAlpha)
+            shr GaussShiftAlpha, 255);
+          pT.r := Min((max(Total.r div Alpha, 0) + GaussRoundAlpha)
+            shr GaussShiftAlpha, 255);
+          pT.a := Alpha;
+        end;
+      end;
+      pT.b := GammaEncodingTable[pT.b];
+      pT.g := GammaEncodingTable[pT.g];
+      pT.r := GammaEncodingTable[pT.r];
+    end
+    else
+      pT^ := ps^;
+    inc(pT);
+    inc(ps);
+  end; // for x
+end;
 
 initialization
 

@@ -6,7 +6,6 @@ interface
 uses WinApi.Windows, WinApi.Wincodec, VCL.Graphics, System.SysUtils,
   VCL.ExtCtrls, System.Types;
 
-
 // classes for generation of test bitmaps
 type
 
@@ -14,7 +13,6 @@ type
 
   TTestGenerator = class
   protected
-    // fBitmap: TBitmap;
     w, bps: integer;
     winv: double;
     rstart: PByte;
@@ -23,6 +21,7 @@ type
     function Pattern(x, y: integer): double; virtual;
     procedure Generate; virtual;
   public
+    AddColorText: boolean;
     destructor Destroy; override;
   end;
 
@@ -59,10 +58,78 @@ type
     procedure Generate(w: integer; TestKind: TTestKind);
   end;
 
+procedure LinesAndTextBitmap(const bmp: TBitmap; w: integer);
+
 implementation
 
 uses System.Math, System.Classes;
 
+procedure SetOpaque(const bm: TBitmap);
+var
+  x, y, w, h, bps: integer;
+  row: PByte;
+  pix: PRGBQuad;
+
+begin
+  Assert(bm.PixelFormat = pf32bit, 'Bitmap must be 32bit');
+  w := bm.Width;
+  h := bm.Height;
+  bps := ((w * 32 + 31) and not 31) div 8;
+
+  row := bm.ScanLine[0];
+  for y := 0 to h - 1 do
+  begin
+    pix := PRGBQuad(row);
+    for x := 0 to w - 1 do
+    begin
+      pix.rgbReserved := 255;
+      inc(pix);
+    end;
+    dec(row, bps);
+  end;
+
+end;
+
+procedure LinesAndTextBitmap(const bmp: TBitmap; w: integer);
+var
+  x, y: integer;
+begin
+  bmp.PixelFormat := pf32bit;
+  bmp.SetSize(w, w);
+  with bmp.Canvas do
+  begin
+    Brush.Color := clWhite;
+    FillRect(ClipRect);
+    Brush.Style := bsClear;
+    Pen.Width := Max(w div 200, 2);
+    Pen.Color := clBlack;
+    y := 2;
+    while y < w - 1 do
+    begin
+      MoveTo(0, y);
+      LineTo(w - 1, y);
+      inc(y, 20);
+    end;
+    x := 2;
+    while x < w - 1 do
+    begin
+      MoveTo(x, 0);
+      LineTo(x, w - 1);
+      inc(x, 20);
+    end;
+    Font.Style := [fsBold];
+    Font.Height := w div 4;
+    Font.Color := clRed;
+    TextOut(2, 2, 'Test');
+    Font.Height := w div 3;
+    Font.Color := clGreen;
+    TextOut(w div 2 - TextWidth('Test') div 2, w div 2- TextHeight('Test') div 2, 'Test');
+    Font.Height := w div 5;
+    Font.Color := clBlue;
+    TextOut(w - 10 - TextWidth('Test'), w - 10 - TextHeight('Test'), 'Test');
+  end;
+  SetOpaque(bmp);
+end;
 
 { TTestGenerator }
 
@@ -92,7 +159,6 @@ begin
     bps := ((w * 32 + 31) and not 31) div 8;
     rstart := Value.ScanLine[0];
   end;
-  // fBitmap := Value;
 end;
 
 function TTestGenerator.GetPixel(x, y: integer): PRGBQuad;
@@ -164,7 +230,7 @@ var
   r2: double;
 begin
   r2 := 1 / 2 * sqr(2 * w - x - 0.5 - y - 0.5);
-  Result := 255 * max((-sin(Pi * r2 * winv / 6)), 0);
+  Result := 255 * Max((-sin(Pi * r2 * winv / 6)), 0);
 end;
 
 procedure TDiagonalsGenerator.SetBitmap(const Value: TBitmap);
@@ -271,7 +337,7 @@ begin
   r2 := sqr(x + 0.5) + sqr(y + 0.5);
   // result := 256 * (-cos(Pi * r2 * winv / 2));
   Result := 128 * (1 - cos(0.75 * Pi * r2 * winv));
-  Result := max(Result, 0);
+  Result := Max(Result, 0);
 end;
 
 { TRaysGenerator }
@@ -281,7 +347,7 @@ var
   theta: double;
 begin
   theta := arg(x + 0.5, y + 0.5);
-  Result := 255 * max((-sin(35 * theta)), 0);
+  Result := 255 * Max((-sin(35 * theta)), 0);
   // result := 128 * max((1- sin(24 * theta)),0);
 end;
 
@@ -294,7 +360,7 @@ begin
   theta := arg(x + 0.5, y + 0.5);
   r := 0.2 * power(sqr(x + 0.5) + sqr(y + 0.5), 0.45);
 
-  Result := 255 * max((-sin(15 * theta + r)), 0);
+  Result := 255 * Max((-sin(15 * theta + r)), 0);
   // result := 128 * max((1- sin(theta+2*r)),0);
 end;
 

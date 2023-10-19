@@ -11,7 +11,6 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
   Vcl.Samples.Spin, Vcl.ExtDlgs, System.ImageList, Vcl.ImgList,
   Vcl.Imaging.pngimage,
-  Vcl.VirtualImageList, Vcl.BaseImageCollection, Vcl.ImageCollection,
   System.Types
   // You now need to put uScale and uScaleCommon into the uses clause
     , uScale, uScaleCommon;
@@ -69,10 +68,11 @@ type
     Apply: TButton;
     SPD: TSavePictureDialog;
     ZoomIn: TButton;
-    ImageCollection1: TImageCollection;
-    VirtualImageList1: TVirtualImageList;
     ZoomOut: TButton;
     NoZoom: TButton;
+    Label9: TLabel;
+    BitmapKind: TComboBox;
+    ImageList1: TImageList;
     procedure FormCreate(Sender: TObject);
     procedure MakeTestBitmapClick(Sender: TObject);
     procedure ShowAlphaClick(Sender: TObject);
@@ -223,7 +223,7 @@ var
 begin
   wic := TWICImage.Create;
   try
-    wic.LoadFromFile(FileName);
+    wic.LoadFromFile(Filename);
     aBmp.Assign(wic);
   finally
     wic.Free;
@@ -234,7 +234,7 @@ procedure SaveToPng(aBmp: TBitmap; const Filename: string);
 var
   wic: TWICImage;
 begin
-  Assert(aBmp.PixelFormat=pf32bit);
+  Assert(aBmp.PixelFormat = pf32bit);
   wic := TWICImage.Create;
   try
     aBmp.AlphaFormat := afDefined;
@@ -251,7 +251,7 @@ var
   FS: TFileStream;
   BFH: TBitmapFileHeader;
   BIH: TBitmapV5Header;
-  y: Integer;
+  Y: Integer;
   sl: PUInt64;
 begin
 
@@ -262,8 +262,9 @@ begin
 
     // Bitmap file header
     FillChar(BFH, SizeOf(BFH), 0);
-    BFH.bfType := $4D42;  // BM
-    BFH.bfSize := 4 * ABitmap.Width * ABitmap.Height + SizeOf(BFH) + SizeOf(BIH);
+    BFH.bfType := $4D42; // BM
+    BFH.bfSize := 4 * ABitmap.Width * ABitmap.Height + SizeOf(BFH) +
+      SizeOf(BIH);
     BFH.bfOffBits := SizeOf(BFH) + SizeOf(BIH);
     FS.Write(BFH, SizeOf(BFH));
 
@@ -280,18 +281,18 @@ begin
     BIH.bV5YPelsPerMeter := 11811;
     BIH.bV5ClrUsed := 0;
     BIH.bV5ClrImportant := 0;
-    BIH.bV5RedMask :=   $00FF0000;
+    BIH.bV5RedMask := $00FF0000;
     BIH.bV5GreenMask := $0000FF00;
-    BIH.bV5BlueMask :=  $000000FF;
+    BIH.bV5BlueMask := $000000FF;
     BIH.bV5AlphaMask := $FF000000;
     BIH.bV5CSType := $73524742; // BGRs
     BIH.bV5Intent := LCS_GM_GRAPHICS;
     FS.Write(BIH, SizeOf(BIH));
 
     // Pixels
-    for y := ABitmap.Height - 1 downto 0 do
+    for Y := ABitmap.Height - 1 downto 0 do
     begin
-      sl := ABitmap.ScanLine[y];
+      sl := ABitmap.ScanLine[Y];
       FS.Write(sl^, 4 * ABitmap.Width);
     end;
 
@@ -307,15 +308,13 @@ var
 begin
   if SPD.Execute then
   begin
-     ext:=ExtractFileExt(SPD.FileName);
-      if ext='.png' then
-      SaveToPng(TheTarget,SPD.FileName)
-      else
-      SaveTransparentBitmap(TheTarget,SPD.FileName);
+    ext := ExtractFileExt(SPD.Filename);
+    if ext = '.png' then
+      SaveToPng(TheTarget, SPD.Filename)
+    else
+      SaveTransparentBitmap(TheTarget, SPD.Filename);
   end;
 end;
-
-
 
 procedure TDemoMain.Image2MouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; x, Y: Integer);
@@ -389,7 +388,10 @@ begin
   bm := TTestBitmap.Create;
   try
     screen.Cursor := crHourGlass;
-    bm.Generate(GetBMWidth(BitmapSize.ItemIndex), tkCircles);
+    if BitmapKind.ItemIndex = 0 then
+      bm.Generate(GetBMWidth(BitmapSize.ItemIndex), tkCircles)
+    else
+      LinesAndTextBitmap(bm, GetBMWidth(BitmapSize.ItemIndex));
     TheOriginal.Assign(bm);
     TheOriginal.PixelFormat := pf32bit;
     MakeSourceAlpha;
@@ -531,8 +533,8 @@ begin
 end;
 
 const
-  FilterArray: Array [0 .. 3] of TFilter = (cfBox, cfBilinear, cfBicubic,
-    cfLanczos);
+  FilterArray: Array [0 .. 7] of TFilter = (cfBox, cfBilinear, cfBicubic,
+    cfLanczos, cfMitchell, cfRobidoux, cfRobidouxSharp, cfRobidouxSoft);
 
   // Scale source to target iteratively in Steps.Value steps
 procedure TDemoMain.DoScale;
@@ -626,8 +628,8 @@ begin
       try
         StopWatch.Start;
 
-         ScaleWICImagingBicubic(nw, nh, bm, help,
-         TAlphaCombineMode(CombineModes.ItemIndex));
+        ScaleWICImagingBicubic(nw, nh, bm, help,
+          TAlphaCombineMode(CombineModes.ItemIndex));
         StopWatch.Stop;
         bm.Assign(help);
       finally

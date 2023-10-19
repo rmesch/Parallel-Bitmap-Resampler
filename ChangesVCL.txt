@@ -1,3 +1,9 @@
+2023-10-19
+  New resampling filters: Mitchell, Robidoux etc.. 
+  Simplified and corrected MakeGaussContributors in uScaleCommon.pas.
+  Tried to make Gamma-correction a little more precise.
+  Legacy-version still awaiting updates.
+
 2023-10-10
   Added options to properly handle the alpha-channel for unsharp-mask.
   Gamma-correction can be turned on for the unsharp-mask, but can lead to imprecisions.

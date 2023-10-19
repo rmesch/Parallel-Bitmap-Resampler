@@ -111,8 +111,8 @@ end;
 
 const
   MovieHeights: array [0 .. 6] of integer = (360, 480, 600, 720, 900, 1080, 1440);
-  Filters: array [0 .. 3] of TFilter = (cfBox, cfBilinear, cfBicubic,
-    cfLanczos);
+  Filters: array [0 .. 7] of TFilter = (cfBox, cfBilinear, cfBicubic,
+    cfLanczos,cfMitchell,cfRobidoux,cfRobidouxSharp,cfRobidouxSoft);
 
 procedure TZoomPanMain.FormCreate(Sender: TObject);
 var

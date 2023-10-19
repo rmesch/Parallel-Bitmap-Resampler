@@ -100,6 +100,9 @@ object ZoomPanFMXMain: TZoomPanFMXMain
         object Heights: TComboBox
           Position.X = 8.000000000000000000
           Position.Y = 43.000000000000000000
+          Size.Width = 89.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
           TabOrder = 38
           OnChange = HeightsChange
         end
@@ -115,10 +118,17 @@ object ZoomPanFMXMain: TZoomPanFMXMain
             'Box'
             'Bilinear'
             'Bicubic'
-            'Lanczos')
+            'Lanczos'
+            'Mitchell'
+            'Robidoux'
+            'RobidouxSharp'
+            'RobidouxSoft')
           ItemIndex = 1
-          Position.X = 128.000000000000000000
+          Position.X = 105.000000000000000000
           Position.Y = 43.000000000000000000
+          Size.Width = 123.000000000000000000
+          Size.Height = 22.000000000000000000
+          Size.PlatformDefault = False
           TabOrder = 40
         end
         object Scaling: TComboBox
@@ -140,7 +150,7 @@ object ZoomPanFMXMain: TZoomPanFMXMain
           TabOrder = 44
         end
         object Label2: TLabel
-          Position.X = 128.000000000000000000
+          Position.X = 105.000000000000000000
           Position.Y = 24.000000000000000000
           Size.Width = 94.000000000000000000
           Size.Height = 17.000000000000000000

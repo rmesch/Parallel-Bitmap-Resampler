@@ -144,7 +144,7 @@ object ZoomPanMain: TZoomPanMain
           Caption = 'Filter:'
         end
         object Label4: TLabel
-          Left = 263
+          Left = 291
           Top = 12
           Width = 111
           Height = 13
@@ -171,7 +171,7 @@ object ZoomPanMain: TZoomPanMain
           Value = 20
         end
         object Start: TButton
-          Left = 374
+          Left = 402
           Top = 28
           Width = 75
           Height = 21
@@ -182,20 +182,24 @@ object ZoomPanMain: TZoomPanMain
         object Filter: TComboBox
           Left = 175
           Top = 28
-          Width = 82
+          Width = 110
           Height = 21
           Style = csDropDownList
-          ItemIndex = 2
+          ItemIndex = 1
           TabOrder = 3
-          Text = 'Bicubic'
+          Text = 'Bilinear'
           Items.Strings = (
             'Box'
             'Bilinear'
             'Bicubic'
-            'Lanczos')
+            'Lanczos'
+            'Mitchell'
+            'Robidoux'
+            'RobidouxSharp'
+            'RobidouxSoft')
         end
         object RadiusPercent: TSpinEdit
-          Left = 263
+          Left = 291
           Top = 27
           Width = 66
           Height = 22

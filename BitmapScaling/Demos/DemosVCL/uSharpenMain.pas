@@ -265,8 +265,8 @@ begin
 end;
 
 const
-  Filters: array [0 .. 3] of TFilter = (cfBox, cfBilinear, cfBicubic,
-    cfLanczos);
+  Filters: array [0 .. 7] of TFilter = (cfBox, cfBilinear, cfBicubic,
+    cfLanczos,cfMitchell,cfRobidoux,cfRobidouxSharp,cfRobidouxSoft);
 
 function TSharpenMain.GetFilter: TFilter;
 begin
@@ -325,6 +325,7 @@ function TSharpenMain.GetUseTransparentColor: boolean;
 begin
   Result := Blending.ItemIndex = 2;
 end;
+
 
 procedure TSharpenMain.LoadImageClick(Sender: TObject);
 var

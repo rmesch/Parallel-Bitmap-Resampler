@@ -8,7 +8,7 @@ uses
 procedure BitmapVCLToFMX(const Source: VCL.Graphics.TBitmap;
   const Target: FMX.Graphics.TBitmap);
 
-/// <summary> Magnifies Source to Target by enlarging pixels. For inspection of the pixel-structure. Sets Source and Target to pf24bit. </summary>
+/// <summary> Magnifies Source to Target by enlarging pixels. For inspection of the pixel-structure.</summary>
 procedure Magnify(const Source, Target: FMX.Graphics.TBitmap; fact: integer);
 
 /// <summary> Sets the alpha of all pixels to 255. </summary>
@@ -29,7 +29,7 @@ begin
   Assert(Target.Map(TMapAccess.Write, Data));
   ByteSource := Source.ScanLine[0];
   ByteTarget := Data.GetScanline(0);
-  bps := ((Source.Width * 32 + 31) and not 31) div 8;
+  bps := Source.Width*4;
   pitch := Data.pitch;
   bpLine := Data.BytesPerLine;
   for y := 1 to Source.Height do

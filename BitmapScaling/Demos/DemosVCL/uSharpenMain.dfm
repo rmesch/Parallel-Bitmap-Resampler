@@ -203,7 +203,7 @@ object SharpenMain: TSharpenMain
         Caption = 'Filter'
       end
       object ShowNewSize: TLabel
-        Left = 147
+        Left = 168
         Top = 44
         Width = 73
         Height = 15
@@ -212,7 +212,7 @@ object SharpenMain: TSharpenMain
       object ScalePercent: TSpinEdit
         Left = 3
         Top = 40
-        Width = 65
+        Width = 46
         Height = 24
         MaxValue = 300
         MinValue = 5
@@ -221,10 +221,11 @@ object SharpenMain: TSharpenMain
         OnChange = ScalePercentChange
       end
       object ShowFilter: TComboBox
-        Left = 74
+        Left = 55
         Top = 41
-        Width = 67
+        Width = 107
         Height = 23
+        Style = csDropDownList
         ItemIndex = 2
         TabOrder = 1
         Text = 'Bicubic'
@@ -233,7 +234,11 @@ object SharpenMain: TSharpenMain
           'Box'
           'Bilinear'
           'Bicubic'
-          'Lanczos')
+          'Lanczos'
+          'Mitchell'
+          'Robidoux'
+          'RobidouxSharp'
+          'RobidouxSoft')
       end
     end
     object GroupBox3: TGroupBox
@@ -304,7 +309,6 @@ object SharpenMain: TSharpenMain
       Align = alLeft
       Caption = 'Timings [ms]'
       TabOrder = 3
-      ExplicitTop = 2
       object TimeResample: TLabel
         Left = 84
         Top = 26
@@ -350,7 +354,6 @@ object SharpenMain: TSharpenMain
         'Use Transparent Color')
       TabOrder = 4
       OnClick = BlendingClick
-      ExplicitLeft = 125
     end
   end
   object Panel3: TPanel
