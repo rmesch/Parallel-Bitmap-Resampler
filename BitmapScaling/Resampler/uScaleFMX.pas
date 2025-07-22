@@ -123,7 +123,7 @@ procedure UnsharpMaskParallel(Source, Target: TBitmap;
 
 implementation
 
-function GetResamplingTask(const RTS: TResamplingThreadSetup; Index: integer;
+function GetResamplingTask(RTS: TResamplingThreadSetup; Index: integer;
   AlphaCombineMode: TAlphaCombineMode): TProc;
 begin
   Result := procedure

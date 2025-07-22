@@ -167,7 +167,6 @@ object DemoMain: TDemoMain
       ParentColor = False
       TabOrder = 2
       OnMouseWheel = ScrollBox1MouseWheel
-      ExplicitTop = 69
       object Image1: TImage
         Left = 0
         Top = 0

@@ -92,43 +92,37 @@ end;
 
 procedure LinesAndTextBitmap(const bmp: TBitmap; w: integer);
 var
-  x, y: integer;
+  X, Y: Integer;
 begin
-  bmp.PixelFormat := pf32bit;
-  bmp.SetSize(w, w);
-  with bmp.Canvas do
-  begin
-    Brush.Color := clWhite;
-    FillRect(ClipRect);
-    Brush.Style := bsClear;
-    Pen.Width := Max(w div 200, 2);
-    Pen.Color := clBlack;
-    y := 2;
-    while y < w - 1 do
+    bmp.PixelFormat := pf32bit;
+    bmp.SetSize(w,w);
+    bmp.Canvas.Brush.Style:=bsClear;
+    bmp.Canvas.Font.Size := 24;
+    bmp.Canvas.Font.Color := clRed;
+    bmp.Canvas.TextOut(10, 10, 'Test');
+    bmp.Canvas.Font.Size := 48;
+    bmp.Canvas.Font.Color := clGreen;
+    bmp.Canvas.TextOut(50, 50, 'Test');
+    bmp.Canvas.Font.Size := 32;
+    bmp.Canvas.Font.Color := clBlue;
+    bmp.Canvas.TextOut(160, 160, 'Test');
+
+    X := 5;
+    while X < w do
     begin
-      MoveTo(0, y);
-      LineTo(w - 1, y);
-      inc(y, 20);
+      bmp.Canvas.MoveTo(X, 5);
+      bmp.Canvas.LineTo(X, bmp.Height - 5);
+      Inc(X, 5);
     end;
-    x := 2;
-    while x < w - 1 do
+
+    Y := 5;
+    while Y < w do
     begin
-      MoveTo(x, 0);
-      LineTo(x, w - 1);
-      inc(x, 20);
+      bmp.Canvas.MoveTo(5, Y);
+      bmp.Canvas.LineTo(bmp.Width - 5, Y);
+      Inc(Y, 5);
     end;
-    Font.Style := [fsBold];
-    Font.Height := w div 4;
-    Font.Color := clRed;
-    TextOut(2, 2, 'Test');
-    Font.Height := w div 3;
-    Font.Color := clGreen;
-    TextOut(w div 2 - TextWidth('Test') div 2, w div 2- TextHeight('Test') div 2, 'Test');
-    Font.Height := w div 5;
-    Font.Color := clBlue;
-    TextOut(w - 10 - TextWidth('Test'), w - 10 - TextHeight('Test'), 'Test');
-  end;
-  SetOpaque(bmp);
+    SetOpaque(bmp);
 end;
 
 { TTestGenerator }

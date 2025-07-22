@@ -7,13 +7,36 @@ unit uThreadsInThreadsFMX;
 interface
 
 uses
-  System.SysUtils, System.Types, System.UITypes, System.Classes,
+  WinApi.Windows,
+  FMX.Types,
+  FMX.Controls,
+  FMX.Forms,
+  FMX.Graphics,
+  FMX.Dialogs,
+  FMX.Controls.Presentation,
+  FMX.StdCtrls,
+  FMX.Memo.Types,
+  FMX.Layouts,
+  FMX.Objects,
+  FMX.ScrollBox,
+  FMX.Memo,
+  FMX.TreeView,
+  FMX.ImgList,
+  FMX.ListBox,
+  System.SysUtils,
+  System.Types,
+  System.UITypes,
+  System.Classes,
   System.Variants,
-  FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs,
-  FMX.Controls.Presentation, FMX.StdCtrls, FMX.Memo.Types, FMX.Layouts,
-  FMX.Objects, FMX.ScrollBox, FMX.Memo, FMX.TreeView, System.ImageList,
-  FMX.ImgList, uDirectoryTreeFMX, System.SyncObjs, uScaleFMX, uScaleCommon,
-  FMX.ListBox, System.Diagnostics;
+  System.SyncObjs,
+  System.ImageList,
+  System.Diagnostics,
+  System.IOUtils,
+  System.Math,
+  uDirectoryTreeFMX,
+  uScaleFMX,
+  uScaleCommon,
+  uShowPictureFMX;
 
 type
   TThumbControl = class;
@@ -32,10 +55,13 @@ type
     DataList: Tarray<TThumbData>;
     OnThumbClick: TNotifyEvent;
     ScreenScale: single;
-    procedure MakeLists(const aDirectory, aFileMask: string;
-      const aThumbClick: TNotifyEvent);
+    procedure MakeLists(
+      const aDirectory, aFileMask: string;
+      const aThumbClick:           TNotifyEvent);
     procedure ClearThumbs;
-    procedure PaintThumb(Index: integer; aCanvas: TCanvas);
+    procedure PaintThumb(
+      Index:   integer;
+      aCanvas: TCanvas);
     procedure RedisplayThumbs;
   end;
 
@@ -115,18 +141,26 @@ type
 var
   ThreadsInThreadsFMXMain: TThreadsInThreadsFMXMain;
 
+function StrCmpLogicalW(psz1, psz2: LPCWSTR)
+  : Integer; stdcall;
+
+{$EXTERNALSYM StrCmpLogicalW}
+
 implementation
 
 {$R *.fmx}
 
-uses System.IOUtils, Winapi.ShlWApi, System.Math, uShowPictureFMX;
+function StrCmpLogicalW; external 'shlwapi.dll' name 'StrCmpLogicalW';
+
 
 procedure TThreadsInThreadsFMXMain.FormCreate(Sender: TObject);
 begin
   // leave 2 processors for the MakeThumbsThreads (seems better)
-  ThreadPoolLower.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
+  ThreadPoolLower.Initialize(
+    min(16, TThread.ProcessorCount div 2 - 1),
     tpHigher);
-  ThreadPoolUpper.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
+  ThreadPoolUpper.Initialize(
+    min(16, TThread.ProcessorCount div 2 - 1),
     tpHigher);
   MakeThumbsThreadLower := TMakeThumbsThread.Create;
   MakeThumbsThreadLower.Priority := tpHighest;
@@ -166,7 +200,11 @@ end;
 
 procedure TThreadsInThreadsFMXMain.FormShow(Sender: TObject);
 begin
-  SetBounds(0, 0, round(Screen.Width / 2), round(Screen.Height));
+  SetBounds(
+    0,
+    0,
+    round(Screen.Width / 2),
+    round(Screen.Height));
   ShowPicture.Left := self.Width + 10;
   ShowPicture.Top := 0;
   ShowPicture.Width := self.Width;
@@ -198,7 +236,9 @@ begin
   ThumbList.ThumbSize := ThumbSizes[ThumbSizeBox.ItemIndex];
   ThumbList.DetailsSize := 46;
   ThumbList.ThumbParent := ThumbView;
-  ThumbList.MakeLists(CurDirectory, '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
+  ThumbList.MakeLists(
+    CurDirectory,
+    '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
     ThumbClick);
   if ThumbList.ThumbCount > 2000 then
   begin
@@ -237,7 +277,6 @@ begin
     DirectoryTree.NewRootFolder(LDirectory);
   end;
 end;
-
 
 procedure TThreadsInThreadsFMXMain.SharpenChange(Sender: TObject);
 begin
@@ -322,21 +361,31 @@ begin
     DataList[i].Bitmap.Free;
     DataList[i].ThumbControl.Free;
   end;
-  SetLength(DataList, 0);
+  SetLength(
+    DataList,
+    0);
 end;
 
-function LogicalCompare(List: TStringlist; Index1, Index2: integer): integer;
+function LogicalCompare(
+  List:           TStringlist;
+  Index1, Index2: integer)
+  : integer;
 begin
-  Result := StrCmpLogicalW(PWideChar(List[Index1]), PWideChar(List[Index2]));
+  Result := StrCmpLogicalW(
+    PWideChar(List[Index1]),
+    PWideChar(List[Index2]));
 end;
 
-procedure TThumblist.MakeLists(const aDirectory, aFileMask: string;
-  const aThumbClick: TNotifyEvent);
+procedure TThumblist.MakeLists(
+  const aDirectory, aFileMask: string;
+  const aThumbClick:           TNotifyEvent);
 var
   sl: TStringlist;
   PicPath, mask, SearchStr: string;
   MaskLen, MaskPos, SepPos, i: integer;
   TH: TThumbControl;
+  j: integer;
+  ClassicStrings: TStringDynArray;
 begin
   if not System.SysUtils.DirectoryExists(aDirectory) then
   begin
@@ -354,11 +403,26 @@ begin
     begin
       SepPos := Pos(';', mask, MaskPos + 1) - 1;
       if SepPos >= 0 then
-        SearchStr := Copy(mask, MaskPos + 1, SepPos - MaskPos)
+        SearchStr := Copy(
+          mask,
+          MaskPos + 1,
+          SepPos - MaskPos)
       else
-        SearchStr := Copy(mask, MaskPos + 1, MaskLen);
-      sl.AddStrings(TDirectory.GetFiles(PicPath, SearchStr,
-        TSearchOption.soTopDirectoryOnly));
+        SearchStr := Copy(
+          mask,
+          MaskPos + 1,
+          MaskLen);
+      ClassicStrings := TDirectory.GetFiles(
+        PicPath,
+        SearchStr,
+        TSearchOption.soTopDirectoryOnly);
+      for j := Low(ClassicStrings) to High(ClassicStrings) do
+        sl.Add(ClassicStrings[j]);
+      SetLength(
+        ClassicStrings,
+        0);
+      // sl.AddStrings(TDirectory.GetFiles(PicPath, SearchStr,
+      // TSearchOption.soTopDirectoryOnly));
       if SepPos >= 0 then
       begin
         Inc(SepPos);
@@ -369,7 +433,9 @@ begin
     end;
     // Natural sorting order, e.g. '7' '8' '9' '10'
     sl.CustomSort(LogicalCompare);
-    SetLength(DataList, sl.Count);
+    SetLength(
+      DataList,
+      sl.Count);
     for i := 0 to sl.Count - 1 do
       DataList[i].Filename := sl.Strings[i];
   finally
@@ -384,13 +450,17 @@ begin
     DataList[i].ThumbControl := TH;
     TH.fThumbIndex := i;
     TH.OnClick := aThumbClick;
-    DataList[i].OrgSize := Point(0, 0);
+    DataList[i].OrgSize := Point(
+      0,
+      0);
   end;
   RedisplayThumbs;
   ThumbParent.Repaint;
 end;
 
-procedure TThumblist.PaintThumb(Index: integer; aCanvas: TCanvas);
+procedure TThumblist.PaintThumb(
+  Index:   integer;
+  aCanvas: TCanvas);
 var
   bm: TBitmap;
   Name, Size: string;
@@ -401,15 +471,25 @@ begin
     exit;
   DrawColor := TAlphaColorRec.Silver;
   aCanvas.Stroke.Color := DrawColor;
-  aCanvas.DrawRect(RectF(0, 0, ThumbSize, ThumbSize), 1);
-  aCanvas.DrawRect(RectF(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize), 1);
+  aCanvas.DrawRect(
+    RectF(0, 0, ThumbSize, ThumbSize),
+    1);
+  aCanvas.DrawRect(
+    RectF(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize),
+    1);
   Name := ExtractFilename(DataList[Index].Filename);
   Size := IntToStr(DataList[Index].OrgSize.x) + 'x' +
     IntToStr(DataList[Index].OrgSize.y);
   Name := Name + sLineBreak + Size;
   aCanvas.Fill.Color := DrawColor;
-  aCanvas.FillText(RectF(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize),
-    Name, true, 1, [], TTextAlign.Center, TTextAlign.Center);
+  aCanvas.FillText(
+    RectF(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize),
+    Name,
+    true,
+    1,
+    [],
+    TTextAlign.Center,
+    TTextAlign.Center);
   if not assigned(DataList[Index].Bitmap) then
     exit;
   bm := DataList[Index].Bitmap;
@@ -419,8 +499,12 @@ begin
   h := bm.Height / ScreenScale;
   l := (ThumbSize - w) / 2;
   t := (ThumbSize - h) / 2;
-  aCanvas.DrawBitmap(bm, RectF(0, 0, bm.Width, bm.Height),
-    RectF(l, t, l + w, t + h), 1, false);
+  aCanvas.DrawBitmap(
+    bm,
+    RectF(0, 0, bm.Width, bm.Height),
+    RectF(l, t, l + w, t + h),
+    1,
+    false);
 end;
 
 procedure TThumblist.RedisplayThumbs;
@@ -440,11 +524,19 @@ begin
   begin
     TC := DataList[i].ThumbControl;
     TC.Parent := ThumbParent;
-    TC.SetBounds(Left, Top, ThumbSize, ThumbSize + DetailsSize);
-    Inc(Left, ThumbSize);
+    TC.SetBounds(
+      Left,
+      Top,
+      ThumbSize,
+      ThumbSize + DetailsSize);
+    Inc(
+      Left,
+      ThumbSize);
     if Left > ThumbParent.ClientWidth - ThumbSize then
     begin
-      Inc(Top, ThumbSize + DetailsSize);
+      Inc(
+        Top,
+        ThumbSize + DetailsSize);
       Left := 0;
     end;
   end;
@@ -454,7 +546,9 @@ end;
 procedure TThumbControl.Paint;
 begin
   inherited;
-  fThumblist.PaintThumb(fThumbIndex, Canvas);
+  fThumblist.PaintThumb(
+    fThumbIndex,
+    Canvas);
 end;
 
 { TMakeThumbsThread }
@@ -518,7 +612,9 @@ begin
         // not really necessary, it's nil to begin with
       else
       begin
-        fThumblist.DataList[i].OrgSize := Point(bm.Width, bm.Height);
+        fThumblist.DataList[i].OrgSize := Point(
+          bm.Width,
+          bm.Height);
         if bm.Width > bm.Height then
         begin
           w := fThumblist.ThumbSize - 4;
@@ -549,15 +645,26 @@ begin
           am := TBitmap.Create;
           try
             acm := amIndependent;
-            r := RectF(0, 0, bm.Width, bm.Height);
+            r := RectF(
+              0,
+              0,
+              bm.Width,
+              bm.Height);
             case ThreadingIndex of
               0:
                 begin
-                  am.SetSize(w, h);
+                  am.SetSize(
+                    w,
+                    h);
                   if am.Canvas.BeginScene() then
                   begin
                     am.Canvas.Clear(0);
-                    am.Canvas.DrawBitmap(bm, r, RectF(0, 0, w, h), 1, false);
+                    am.Canvas.DrawBitmap(
+                      bm,
+                      r,
+                      RectF(0, 0, w, h),
+                      1,
+                      false);
                     am.Canvas.EndScene;
                   end;
                 end;
@@ -572,8 +679,15 @@ begin
             end;
             if DoSharpen then
             begin
-              us.AutoValues(w, h);
-              UnsharpMaskParallel(am, tm, us, acm, fThreadpool);
+              us.AutoValues(
+                w,
+                h);
+              UnsharpMaskParallel(
+                am,
+                tm,
+                us,
+                acm,
+                fThreadpool);
             end
             else
               tm.Assign(am);

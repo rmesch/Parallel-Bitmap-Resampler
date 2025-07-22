@@ -5,8 +5,16 @@ unit uDirectoryTree;
 
 interface
 
-uses VCL.ComCtrls, VCL.Controls, System.Classes,
-  System.Types, System.IOUtils, System.SysUtils;
+{$WARN SYMBOL_PLATFORM OFF}
+
+uses
+WinApi.Windows,
+  VCL.ComCtrls,
+  VCL.Controls,
+  System.Classes,
+  System.Types,
+  System.IOUtils,
+  System.SysUtils;
 
 type
   TNodeData = record
@@ -22,23 +30,32 @@ type
   protected
     procedure Change(Node: TTreeNode); override;
     procedure Delete(Node: TTreeNode); override;
-    function CanExpand(Node: TTreeNode): boolean; override;
+    function CanExpand(Node: TTreeNode)
+      : boolean; override;
   public
     constructor Create(aOwner: TComponent); override;
     destructor Destroy; override;
     procedure NewRootFolder(const RootFolder: string);
-    function GetFullFolderName(aNode: TTreeNode): string;
-    procedure GetAllFiles(const aStringList: TStringlist;
-      const aFileMask: string);
+    function GetFullFolderName(aNode: TTreeNode)
+      : string;
+    procedure GetAllFiles(
+      const aStringList: TStringlist;
+      const aFileMask:   string);
   end;
+
+function StrCmpLogicalW(psz1, psz2: LPCWSTR)
+  : Integer; stdcall;
+
+{$EXTERNALSYM StrCmpLogicalW}
 
 implementation
 
-uses WinAPI.Windows, WinAPI.ShlWApi;
+function StrCmpLogicalW; external 'shlwapi.dll' name 'StrCmpLogicalW';
 
 { TDirectoryTree }
 
-function TDirectoryTree.CanExpand(Node: TTreeNode): boolean;
+function TDirectoryTree.CanExpand(Node: TTreeNode)
+  : boolean;
 begin
   inherited;
   if assigned(Node.Data) then
@@ -121,7 +138,9 @@ begin
         New(NodeData);
         NodeData.FullPath := NewName;
         NodeData.HasEnoughSubnodes := false;
-        TreeItem := Items.AddChild(aItem, ExtractFilename(NewName));
+        TreeItem := Items.AddChild(
+          aItem,
+          ExtractFilename(NewName));
         TreeItem.Data := NodeData;
         TreeItem.ImageIndex := 0;
       end
@@ -149,7 +168,9 @@ begin
       begin
         if TreeItem.Count <= j then
         begin
-          TreeItem2 := Items.AddChild(TreeItem, ExtractFilename(DirArray2[j]));
+          TreeItem2 := Items.AddChild(
+            TreeItem,
+            ExtractFilename(DirArray2[j]));
           New(NodeData);
           NodeData.FullPath := DirArray2[j];
           NodeData.HasEnoughSubnodes := false;
@@ -178,7 +199,9 @@ begin
     ShortName := ExtractFilename(RootFolder);
     if ShortName = '' then
       ShortName := RootFolder;
-    Root := Items.AddChild(nil, ShortName);
+    Root := Items.AddChild(
+      nil,
+      ShortName);
     New(NodeData);
     NodeData.FullPath := RootFolder;
     NodeData.HasEnoughSubnodes := false;
@@ -192,26 +215,35 @@ begin
   Root.Selected := true;
 end;
 
-function TDirectoryTree.GetFullFolderName(aNode: TTreeNode): string;
+function TDirectoryTree.GetFullFolderName(aNode: TTreeNode)
+  : string;
 begin
   if not assigned(aNode.Data) then
     raise Exception.Create('Node has no directory name');
   Result := PNodeData(aNode.Data).FullPath;
 end;
 
-function LogicalCompare(List: TStringlist; Index1, Index2: integer): integer;
+function LogicalCompare(
+  List:           TStringlist;
+  Index1, Index2: integer)
+  : integer;
 begin
-  Result := StrCmpLogicalW(PWideChar(List[Index1]), PWideChar(List[Index2]));
+  Result := StrCmpLogicalW(
+    PWideChar(List[Index1]),
+    PWideChar(List[Index2]));
 end;
 
-procedure TDirectoryTree.GetAllFiles(const aStringList: TStringlist;
-const aFileMask: string);
+procedure TDirectoryTree.GetAllFiles(
+  const aStringList: TStringlist;
+  const aFileMask:   string);
 var
   FilePath, mask, SearchStr: string;
   MaskLen, MaskPos, SepPos: integer;
+  i: Integer;
+  ClassicStrings: TStringDynArray;
 begin
   FilePath := IncludeTrailingBackSlash(GetFullFolderName(Selected));
-  Assert(Assigned(aStringList));
+  Assert(assigned(aStringList));
   aStringList.Clear;
   mask := aFileMask;
   MaskLen := Length(mask);
@@ -221,12 +253,25 @@ begin
   begin
     SepPos := Pos(';', mask, MaskPos + 1) - 1;
     if SepPos >= 0 then
-      SearchStr := Copy(mask, MaskPos + 1, SepPos - MaskPos)
+      SearchStr := Copy(
+        mask,
+        MaskPos + 1,
+        SepPos - MaskPos)
     else
-      SearchStr := Copy(mask, MaskPos + 1, MaskLen);
+      SearchStr := Copy(
+        mask,
+        MaskPos + 1,
+        MaskLen);
 
-    aStringList.AddStrings(TDirectory.GetFiles(FilePath, SearchStr,
-      TSearchOption.soTopDirectoryOnly));
+    ClassicStrings := TDirectory.GetFiles(
+      FilePath,
+      SearchStr,
+      TSearchOption.soTopDirectoryOnly);
+    for i := Low(ClassicStrings) to High(ClassicStrings) do
+      aStringList.Add(ClassicStrings[i]);
+    SetLength(
+      ClassicStrings,
+      0);
 
     if SepPos >= 0 then
     begin

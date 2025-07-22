@@ -170,7 +170,7 @@ object ThreadsInThreadsMain: TThreadsInThreadsMain
     Top = 172
   end
   object ImageList1: TImageList
-    Left = 32
+    Left = 34
     Top = 320
     Bitmap = {
       494C010101000800040010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600

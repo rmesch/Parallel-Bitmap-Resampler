@@ -547,12 +547,19 @@ var
   r: single;
   acm: TAlphaCombineMode;
 begin
-  screen.Cursor := crHourGlass;
   Filter := FilterArray[Filters.ItemIndex];
   r := 0.01 * RadiusPercent.Value * DefaultRadius[Filter]; // Filter-Radius
   acm := TAlphaCombineMode(CombineModes.ItemIndex);
   TheWIC.SetSize(0, 0);
   TheTarget.SetSize(0, 0); // erase previous alpha
+  if (Height.Value=TheSource.Height) and (Width.Value=TheSource.Width) then
+  begin
+    TheTarget.Assign(TheSource);
+    TheWic.Assign(TheSource);
+    DisplayZooms;
+    exit
+  end;
+  screen.Cursor := crHourGlass;
   deltaw := (TheSource.Width - Width.Value) div Steps.Value;
   StopWatch := TStopWatch.Create;
   bm := TBitmap.Create;
