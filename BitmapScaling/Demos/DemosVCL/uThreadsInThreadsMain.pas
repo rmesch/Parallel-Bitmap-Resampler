@@ -16,14 +16,29 @@ unit uThreadsInThreadsMain;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
-  System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Grids,
-  Vcl.StdCtrls, Vcl.FileCtrl, Vcl.ExtCtrls,
-  System.Generics.Collections, System.SyncObjs, System.Diagnostics,
+  Winapi.Windows,
+  Winapi.Messages,
+  System.SysUtils,
+  System.Variants,
+  System.Classes,
+  Vcl.Graphics,
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Dialogs,
+  Vcl.Grids,
+  Vcl.StdCtrls,
+  Vcl.FileCtrl,
+  Vcl.ExtCtrls,
+  System.Generics.Collections,
+  System.SyncObjs,
+  System.Diagnostics,
   // You now need to put uScale and uScaleCommon into the uses clause
-  uScale, uScaleCommon, uDirectoryTree,
-  System.ImageList, Vcl.ImgList, Vcl.ComCtrls;
+  uScale,
+  uScaleCommon,
+  uDirectoryTree,
+  System.ImageList,
+  Vcl.ImgList,
+  Vcl.ComCtrls;
 
 const
   MsgUpdate = WM_user + 1;
@@ -54,10 +69,13 @@ type
     ThumbParent: TScrollbox;
     DataList: Tarray<TThumbData>;
     OnThumbClick: TNotifyEvent;
-    procedure MakeLists(const aDirectory, aFileMask: string;
-      const aThumbClick: TNotifyEvent);
+    procedure MakeLists(
+      const aDirectory, aFileMask: string;
+      const aThumbClick:           TNotifyEvent);
     procedure ClearThumbs;
-    procedure PaintThumb(Index: integer; aCanvas: TCanvas);
+    procedure PaintThumb(
+      Index:   integer;
+      aCanvas: TCanvas);
     procedure RedisplayThumbs;
   end;
 
@@ -110,11 +128,16 @@ type
     procedure FormCreate(Sender: TObject);
     procedure ThumbViewResize(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure ThumbViewMouseWheel(Sender: TObject; Shift: TShiftState;
-      WheelDelta: integer; MousePos: TPoint; var Handled: boolean);
+    procedure ThumbViewMouseWheel(
+      Sender:      TObject;
+      Shift:       TShiftState;
+      WheelDelta:  integer;
+      MousePos:    TPoint;
+      var Handled: boolean);
     procedure TransparentClick(Sender: TObject);
     procedure FormActivate(Sender: TObject);
-    procedure FormAfterMonitorDpiChanged(Sender: TObject;
+    procedure FormAfterMonitorDpiChanged(
+      Sender:         TObject;
       OldDPI, NewDPI: integer);
     procedure ThreadingClick(Sender: TObject);
     procedure NewRootClick(Sender: TObject);
@@ -147,7 +170,9 @@ type
     procedure DoUpdate(var Msg: TMessage); message MsgUpdate;
 
     // OnChange event-handler for the directory tree, which is created in OnCreate.
-    procedure DirectoryTreeChange(Sender: TObject; Node: TTreeNode);
+    procedure DirectoryTreeChange(
+      Sender: TObject;
+      Node:   TTreeNode);
     { Private-Deklarationen }
   public
     { Public-Deklarationen }
@@ -160,8 +185,13 @@ implementation
 
 {$R *.dfm}
 
-uses System.IOUtils, Winapi.ShlWApi, System.Math,
-  uShowPicture, uTools, System.Types, Vcl.Themes, Vcl.Styles;
+uses System.IOUtils,
+  System.Math,
+  uShowPicture,
+  uTools,
+  System.Types,
+  Vcl.Themes,
+  Vcl.Styles;
 
 // ThreadWICLower, ThreadWICUpper are the TWICImages we use to load and
 // decode the image-files for the MakeThumbsThread.
@@ -184,11 +214,20 @@ end;
 
 procedure TThreadsInThreadsMain.FormActivate(Sender: TObject);
 begin
-  SetBounds(0, 0, screen.width div 2, screen.Height);
-  ShowPicture.SetBounds(width, 0, screen.width div 2, screen.Height div 2);
+  SetBounds(
+    0,
+    0,
+    screen.width div 2,
+    screen.Height);
+  ShowPicture.SetBounds(
+    width,
+    0,
+    screen.width div 2,
+    screen.Height div 2);
 end;
 
-procedure TThreadsInThreadsMain.FormAfterMonitorDpiChanged(Sender: TObject;
+procedure TThreadsInThreadsMain.FormAfterMonitorDpiChanged(
+  Sender:         TObject;
   OldDPI, NewDPI: integer);
 begin
   MakeNewThumbs;
@@ -197,19 +236,21 @@ end;
 procedure TThreadsInThreadsMain.FormCreate(Sender: TObject);
 begin
   // leave 2 processors for the MakeThumbsThreads (seems better)
-  ThreadpoolLower.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
-    tpHighest);
-  ThreadpoolUpper.Initialize(min(16, TThread.ProcessorCount div 2 - 1),
-    tpHighest);
+  ThreadpoolLower.Initialize(
+    min(16, TThread.ProcessorCount div 2 - 1),
+    tpNormal);
+  ThreadpoolUpper.Initialize(
+    min(16, TThread.ProcessorCount div 2 - 1),
+    tpNormal);
   // We don't initialize the default threadpool.
   // It will be initialized on demand when showing the first picture.
   // InitDefaultResamplingThreads;
   MakeThumbsThreadLower := TMakeThumbsThread.Create;
-  MakeThumbsThreadLower.Priority := tpHighest;
+  MakeThumbsThreadLower.Priority := tpNormal;
   MakeThumbsThreadLower.LowerHalf := true;
   MakeThumbsThreadLower.Ready.WaitFor(Infinite);
   MakeThumbsThreadUpper := TMakeThumbsThread.Create;
-  MakeThumbsThreadUpper.Priority := tpHighest;
+  MakeThumbsThreadUpper.Priority := tpNormal;
   MakeThumbsThreadUpper.LowerHalf := false;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
 
@@ -219,7 +260,7 @@ begin
   DirectoryTree.Align := alClient;
   DirectoryTree.Images := ImageList1;
   DirectoryTree.OnChange := DirectoryTreeChange;
-  DirectoryTree.HideSelection:=false;
+  DirectoryTree.HideSelection := false;
   DirectoryTree.NewRootFolder(TPath.GetPicturesPath);
   Rootfolder := TPath.GetPicturesPath;
 end;
@@ -260,12 +301,16 @@ begin
   MakeThumbsThreadLower.Ready.ResetEvent;
   MakeThumbsThreadUpper.Ready.WaitFor(Infinite);
   MakeThumbsThreadUpper.Ready.ResetEvent;
-  Thumblist.ThumbSize := MulDiv(ThumbSizes[ThumbSize.ItemIndex],
-    Monitor.PixelsPerInch, 96);
+  Thumblist.ThumbSize := MulDiv(
+    ThumbSizes[ThumbSize.ItemIndex],
+    Monitor.PixelsPerInch,
+    96);
   Thumblist.DetailsSize := Abs(Font.Height) * 2 +
     MulDiv(10, Monitor.PixelsPerInch, 96);
   Thumblist.ThumbParent := ThumbView;
-  Thumblist.MakeLists(CurDirectory, '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
+  Thumblist.MakeLists(
+    CurDirectory,
+    '*.bmp;*.jpg;*.png;*.gif;*.tif;*.ico',
     ThumbClick);
   if Thumblist.ThumbCount > 2000 then
   begin
@@ -387,10 +432,21 @@ begin
       try
         WIC.LoadFromFile(Thumblist.DataList[TH.fThumbIndex].Filename);
       except
-        BitBlt(ShowPicture.Canvas.Handle, 0, 0, ShowPicture.ClientWidth,
-          ShowPicture.ClientHeight, 0, 0, 0, BLACKNESS);
+        BitBlt(
+          ShowPicture.Canvas.Handle,
+          0,
+          0,
+          ShowPicture.ClientWidth,
+          ShowPicture.ClientHeight,
+          0,
+          0,
+          0,
+          BLACKNESS);
         ShowPicture.Canvas.Font.Color := clRed;
-        ShowPicture.Canvas.TextOut(30, 30, 'Image format not supported');
+        ShowPicture.Canvas.TextOut(
+          30,
+          30,
+          'Image format not supported');
         exit;
       end;
 
@@ -399,7 +455,9 @@ begin
       // The following decodes to Bitmap with alphaformat afIgnored (no premultiply),
       // and opaque alpha-channel for .jpg and 24-bit .bmp.
       // Un-premultiplied input is always best for the resampling.
-      WICToBmp(WIC, bm);
+      WICToBmp(
+        WIC,
+        bm);
 
       // For these file formats we will set alphaformat:=afDefined
       // for the target, so it displays correctly with alpha-transparency.
@@ -435,17 +493,33 @@ begin
           // resample using default threadpool
           if Transparency then
           begin
-            acm:=amTransparentColor;
+            acm := amTransparentColor;
           end
           else if DoSetAlphaFormat then
-            acm:=amPremultiply
+            acm := amPremultiply
           else
-            acm:=amIgnore;
-            uScale.Resample(w, h, bm, am, cfLanczos, 0, true, acm, nil);
+            acm := amIgnore;
+          uScale.Resample(
+            w,
+            h,
+            bm,
+            am,
+            cfLanczos,
+            0,
+            true,
+            acm,
+            nil);
           if Sharpen.Checked then
           begin
-            us.AutoValues(w, h);
-            uScale.UnsharpMaskParallel(am, tm, us, acm, nil);
+            us.AutoValues(
+              w,
+              h);
+            uScale.UnsharpMaskParallel(
+              am,
+              tm,
+              us,
+              acm,
+              nil);
           end
           else
             tm.Assign(am);
@@ -463,7 +537,10 @@ begin
         ShowPicture.Canvas.FillRect(ShowPicture.ClientRect);
 
         // using draw to display with alpha-channel-opacity or transparency
-        ShowPicture.Canvas.Draw((cw - w) div 2, (ch - h) div 2, tm);
+        ShowPicture.Canvas.Draw(
+          (cw - w) div 2,
+          (ch - h) div 2,
+          tm);
       finally
         tm.Free;
       end;
@@ -479,8 +556,11 @@ begin
   MakeNewThumbs;
 end;
 
-procedure TThreadsInThreadsMain.ThumbViewMouseWheel(Sender: TObject;
-  Shift: TShiftState; WheelDelta: integer; MousePos: TPoint;
+procedure TThreadsInThreadsMain.ThumbViewMouseWheel(
+  Sender:      TObject;
+  Shift:       TShiftState;
+  WheelDelta:  integer;
+  MousePos:    TPoint;
   var Handled: boolean);
 begin
   ThumbView.VertScrollbar.Position := ThumbView.VertScrollbar.Position -
@@ -498,8 +578,9 @@ begin
   MakeNewThumbs;
 end;
 
-procedure TThreadsInThreadsMain.DirectoryTreeChange(Sender: TObject;
-  Node: TTreeNode);
+procedure TThreadsInThreadsMain.DirectoryTreeChange(
+  Sender: TObject;
+  Node:   TTreeNode);
 begin
   if (csReading in ComponentState) or (csLoading in ComponentState) or
     (csDestroying in ComponentState) then
@@ -525,21 +606,30 @@ begin
     DataList[i].Bitmap.Free;
     DataList[i].ThumbControl.Free;
   end;
-  SetLength(DataList, 0);
+  SetLength(
+    DataList,
+    0);
 end;
 
-function LogicalCompare(List: TStringlist; Index1, Index2: integer): integer;
+function LogicalCompare(
+  List:           TStringlist;
+  Index1, Index2: integer)
+  : integer;
 begin
-  Result := StrCmpLogicalW(PWideChar(List[Index1]), PWideChar(List[Index2]));
+  Result := StrCmpLogicalW(
+    PWideChar(List[Index1]),
+    PWideChar(List[Index2]));
 end;
 
-procedure TThumblist.MakeLists(const aDirectory, aFileMask: string;
-  const aThumbClick: TNotifyEvent);
+procedure TThumblist.MakeLists(
+  const aDirectory, aFileMask: string;
+  const aThumbClick:           TNotifyEvent);
 var
   sl: TStringlist;
   PicPath, mask, SearchStr: string;
   MaskLen, MaskPos, SepPos, i: integer;
   TH: TThumbControl;
+  ClassicStrings: TStringDynArray;
 begin
   if not System.SysUtils.DirectoryExists(aDirectory) then
   begin
@@ -559,12 +649,27 @@ begin
     begin
       SepPos := Pos(';', mask, MaskPos + 1) - 1;
       if SepPos >= 0 then
-        SearchStr := Copy(mask, MaskPos + 1, SepPos - MaskPos)
+        SearchStr := Copy(
+          mask,
+          MaskPos + 1,
+          SepPos - MaskPos)
       else
-        SearchStr := Copy(mask, MaskPos + 1, MaskLen);
+        SearchStr := Copy(
+          mask,
+          MaskPos + 1,
+          MaskLen);
 
-      sl.AddStrings(TDirectory.GetFiles(PicPath, SearchStr,
-        TSearchOption.soTopDirectoryOnly));
+      ClassicStrings := TDirectory.GetFiles(
+        PicPath,
+        SearchStr,
+        TSearchOption.soTopDirectoryOnly);
+      for i := Low(ClassicStrings) to High(ClassicStrings) do
+        sl.Add(ClassicStrings[i]);
+      SetLength(
+        ClassicStrings,
+        0);
+      // sl.AddStrings(TDirectory.GetFiles(PicPath, SearchStr,
+      // TSearchOption.soTopDirectoryOnly));
 
       if SepPos >= 0 then
       begin
@@ -582,7 +687,9 @@ begin
     // Natural sorting order, e.g. '7' '8' '9' '10'
     sl.CustomSort(LogicalCompare);
 
-    SetLength(DataList, sl.Count);
+    SetLength(
+      DataList,
+      sl.Count);
 
     for i := 0 to sl.Count - 1 do
       DataList[i].Filename := sl.Strings[i];
@@ -600,13 +707,17 @@ begin
     DataList[i].ThumbControl := TH;
     TH.fThumbIndex := i;
     TH.OnClick := aThumbClick;
-    DataList[i].OrgSize := Point(0, 0);
+    DataList[i].OrgSize := Point(
+      0,
+      0);
   end;
 
   RedisplayThumbs;
 end;
 
-procedure TThumblist.PaintThumb(Index: integer; aCanvas: TCanvas);
+procedure TThumblist.PaintThumb(
+  Index:   integer;
+  aCanvas: TCanvas);
 var
   bm: TBitmap;
   Name, Size: string;
@@ -622,16 +733,32 @@ begin
     DrawColor := clSilver;
   aCanvas.Pen.Color := DrawColor;
   aCanvas.Brush.Style := bsClear;
-  aCanvas.Rectangle(0, 0, ThumbSize, ThumbSize);
-  aCanvas.Rectangle(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize);
+  aCanvas.Rectangle(
+    0,
+    0,
+    ThumbSize,
+    ThumbSize);
+  aCanvas.Rectangle(
+    0,
+    ThumbSize,
+    ThumbSize,
+    ThumbSize + DetailsSize);
   Name := ExtractFileName(DataList[Index].Filename);
   Size := IntToStr(DataList[Index].OrgSize.x) + 'x' +
     IntToStr(DataList[Index].OrgSize.y);
   Name := Name + sLineBreak + Size;
   aCanvas.Font.Assign(ThumbParent.Font);
   aCanvas.Font.Color := DrawColor;
-  r := Rect(0, ThumbSize, ThumbSize, ThumbSize + DetailsSize);
-  DrawText(aCanvas.Handle, PChar(Name), Length(Name), r,
+  r := Rect(
+    0,
+    ThumbSize,
+    ThumbSize,
+    ThumbSize + DetailsSize);
+  DrawText(
+    aCanvas.Handle,
+    PChar(Name),
+    Length(Name),
+    r,
     dt_Center or dt_VCenter or dt_WordBreak);
   if not assigned(DataList[Index].Bitmap) then
     exit;
@@ -640,7 +767,10 @@ begin
   h := bm.Height;
   l := (ThumbSize - w) div 2;
   t := (ThumbSize - h) div 2;
-  aCanvas.Draw(l, t, bm);
+  aCanvas.Draw(
+    l,
+    t,
+    bm);
 end;
 
 procedure TThumblist.RedisplayThumbs;
@@ -661,13 +791,19 @@ begin
   begin
     TC := DataList[i].ThumbControl;
     TC.Parent := ThumbParent;
-    TC.SetBounds(Left - ThumbParent.HorzScrollbar.Position,
-      Top - ThumbParent.VertScrollbar.Position, ThumbSize,
+    TC.SetBounds(
+      Left - ThumbParent.HorzScrollbar.Position,
+      Top - ThumbParent.VertScrollbar.Position,
+      ThumbSize,
       ThumbSize + DetailsSize);
-    Inc(Left, ThumbSize);
+    Inc(
+      Left,
+      ThumbSize);
     if Left > ThumbParent.ClientWidth - ThumbSize then
     begin
-      Inc(Top, ThumbSize + DetailsSize);
+      Inc(
+        Top,
+        ThumbSize + DetailsSize);
       Left := 0;
     end;
   end;
@@ -767,7 +903,9 @@ begin
         // The following decodes to Bitmap with alphaformat afIgnored (no premultiply),
         // and opaque alpha-channel for .jpg and 24-bit .bmp.
         // Un-premultiplied input is always best for the resampling.
-        WICToBmp(ThreadWIC, bm);
+        WICToBmp(
+          ThreadWIC,
+          bm);
 
         // For these file formats we will set alphaformat:=afDefined
         // for the target, so it displays correctly with alpha-transparency.
@@ -777,7 +915,9 @@ begin
           TWICImageFormat.wifGif, TWICImageFormat.wifTiff,
           TWICImageFormat.wifOther]);
 
-        fThumblist.DataList[i].OrgSize := Point(bm.width, bm.Height);
+        fThumblist.DataList[i].OrgSize := Point(
+          bm.width,
+          bm.Height);
         if bm.width > bm.Height then
         begin
           w := fThumblist.ThumbSize - 4;
@@ -807,11 +947,15 @@ begin
             if Transparency then
               acm := amTransparentColor
             else if DoSetAlphaFormat then
-              acm := amPreMultiply
+              acm := amPremultiply
             else
               acm := amIgnore;
 
-            r := FloatRect(0, 0, bm.width, bm.Height);
+            r := FloatRect(
+              0,
+              0,
+              bm.width,
+              bm.Height);
             case ThreadingIndex of
               0:
                 ZoomResample(w, h, bm, am, r, cfBicubic, 0, acm);
@@ -824,8 +968,15 @@ begin
 
             if DoSharpen then
             begin
-              us.AutoValues(w, h);
-              uScale.UnsharpMaskParallel(am, tm, us, acm, fThreadpool);
+              us.AutoValues(
+                w,
+                h);
+              uScale.UnsharpMaskParallel(
+                am,
+                tm,
+                us,
+                acm,
+                fThreadpool);
             end
             else
               tm.Assign(am);
@@ -849,7 +1000,11 @@ begin
       if not DoAbort then
       begin
         UpdateMax := i;
-        PostMessage(MessageHandle, MsgUpdate, UpdateMin, UpdateMax);
+        PostMessage(
+          MessageHandle,
+          MsgUpdate,
+          UpdateMin,
+          UpdateMax);
         UpdateMin := UpdateMax + 1;
       end;
   end; // for i
@@ -858,7 +1013,11 @@ begin
     ElapsedLoad := StopLoadFromFile.ElapsedMilliseconds;
     ElapsedResample := StopResample.ElapsedMilliseconds;
     Working := false;
-    PostMessage(MessageHandle, MsgThreadDone, NativeUint(self), 0)
+    PostMessage(
+      MessageHandle,
+      MsgThreadDone,
+      NativeUint(self),
+      0)
   end;
 end;
 
